@@ -5,14 +5,13 @@ import { supabase } from '@/lib/supabase';
 import { bookingSchema } from '@/lib/schemas/booking';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN_EMAIL = 'wojciechjarosz41@gmail.com';
 
 export async function POST(req: Request) {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
     const body = await req.json();
 
-    // 1. Walidacja danych
     const parseResult = bookingSchema.safeParse(body);
     if (!parseResult.success) {
       const firstError = parseResult.error.errors[0]?.message || 'Błąd walidacji';
@@ -21,7 +20,6 @@ export async function POST(req: Request) {
 
     const { name, email, phone, date, time, service } = parseResult.data;
 
-    // 2. Zapis w Supabase
     const { data, error } = await supabase
       .from('appointments')
       .insert([{ name, email, phone, date, time, service }])
@@ -31,7 +29,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 3. Wysyłka powiadomienia e-mail
     try {
       await resend.emails.send({
         from: 'onboarding@resend.dev',
