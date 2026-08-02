@@ -9,19 +9,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, phone, service, date, time } = body;
 
-    // Przygotowanie timestampów ISO
     const startIso = date && time ? new Date(`${date}T${time}:00Z`).toISOString() : new Date().toISOString();
     const endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
 
-    // Mapowanie 1:1 z polską tabelą 'spotkania'
+    // Wpisujemy dokładnie 'spotkania' (zwykłe 'a' na końcu)
     const { data, error } = await supabase
       .from('spotkania')
       .insert([
         {
           identyfikator_dostawcy: 1,
           identyfikator_usługi: service ? Number(service) : 1,
-          czas_rozpoczęcia: startIso,
-          czas_końcowy: endIso,
+          'czas_rozpoczęcia': startIso,
+          'czas_końcowy': endIso,
           status: 'potwierdzony',
           'adres_e-mail_klienta': email,
           nazwa_klienta: name,
@@ -35,7 +34,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Wysyłka maila powiadomienia (Resend)
     if (process.env.RESEND_API_KEY && email) {
       try {
         await resend.emails.send({
