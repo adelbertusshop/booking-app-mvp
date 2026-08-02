@@ -1,5 +1,3 @@
-import BookPage from './demo/book/page';
+'use client';
 
-export default function Home() {
-  return <BookPage />;
-}
+export { default } from './demo/book/page';
