@@ -1,31 +1,9 @@
+import { NextResponse } from 'next/server';
+
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { Resend } from 'resend';
-
-export async function POST(req: Request) {
-  try {
-    const apiKey = process.env.RESEND_API_KEY || 're_placeholder';
-    const resend = new Resend(apiKey);
-
-    const { id } = await req.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'Brak ID rezerwacji' }, { status: 400 });
-    }
-
-    const { error } = await supabase
-      .from('appointments')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
-  }
+export async function GET() {
+  return NextResponse.json({ 
+    slots: ['09:00', '10:30', '12:00', '14:00', '15:30', '17:00'] 
+  }, { status: 200 });
 }
