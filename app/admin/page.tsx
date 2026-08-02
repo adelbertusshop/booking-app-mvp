@@ -18,14 +18,14 @@ export default function AdminPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    // Sortowanie po ID malejąco (najnowsze wpisy na samej górze)
+    // Pobieramy świeże dane i sortujemy od najnowszych
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
       .order('id', { ascending: false });
 
     if (error) {
-      console.error('Błąd pobierania wizyt:', error.message);
+      console.error('Błąd Supabase:', error.message);
     } else {
       setAppointments(data || []);
     }
@@ -33,15 +33,21 @@ export default function AdminPage() {
   };
 
   const handleCancel = async (id: number) => {
-    const { error } = await supabase
-      .from('appointments')
-      .update({ status: 'cancelled' })
-      .eq('id', id);
+    try {
+      const res = await fetch('/api/appointments/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
 
-    if (error) {
-      alert('Nie udało się odwołać wizyty: ' + error.message);
-    } else {
+      if (!res.ok) {
+        alert('Błąd podczas odwoływania wizyty.');
+        return;
+      }
+
       fetchAppointments();
+    } catch (err) {
+      console.error(err);
     }
   };
 
