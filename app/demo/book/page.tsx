@@ -3,10 +3,10 @@
 import { useState } from 'react';
 
 const SERVICES = [
-  { id: '1', name: 'Stylizacja Rzęs Volume & Lift', duration: '90 min', price: '180 zł' },
-  { id: '2', name: 'Strzyżenie & Stylizacja Premium', duration: '60 min', price: '150 zł' },
-  { id: '3', name: 'Manicure Kombinowany + Kolor', duration: '75 min', price: '130 zł' },
-  { id: '4', name: 'Laminacja & Regulacja Brwi', duration: '45 min', price: '100 zł' },
+  { id: '1', name: 'Stylizacja Rzęs Volume & Lift' },
+  { id: '2', name: 'Strzyżenie & Stylizacja Premium' },
+  { id: '3', name: 'Manicure Kombinowany + Kolor' },
+  { id: '4', name: 'Laminacja & Regulacja Brwi' },
 ];
 
 const TIME_SLOTS = ['09:00', '10:30', '12:00', '14:00', '15:30', '17:00'];
@@ -14,240 +14,158 @@ const TIME_SLOTS = ['09:00', '10:30', '12:00', '14:00', '15:30', '17:00'];
 export default function BookPage() {
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState('2026-03-25');
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const res = await fetch('/api/appointments', {
+      const res = await fetch('/api/appointments/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
           service: selectedService,
-          date: `${selectedDate} ${selectedTime}`,
+          date: `${selectedDate} o ${selectedSlot}`,
         }),
       });
 
-      if (res.ok) {
-        setSubmitted(true);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        alert('Rezerwacja przebiegła pomyślnie!');
+        setStep(1);
+        setFormData({ name: '', phone: '', email: '' });
       } else {
-        alert('Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.');
+        alert(data.error || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.');
       }
     } catch (err) {
       console.error(err);
-      alert('Błąd połączenia z serwerem.');
+      alert('Wystąpił błąd połączenia.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (submitted) {
-    return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-8 text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl border border-emerald-500/20">
-            ✓
-          </div>
-          <h2 className="text-2xl font-light tracking-wide text-zinc-100">Wizyta Zarezerwowana</h2>
-          <p className="text-zinc-400 text-sm leading-relaxed">
-            Dziękujemy! Potwierdzenie wysłaliśmy na Twój adres e-mail. Do zobaczenia w salonie!
-          </p>
-          <button
-            onClick={() => { setSubmitted(false); setStep(1); }}
-            className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl font-medium transition duration-200 border border-zinc-700/50"
-          >
-            Zarezerwuj kolejną wizytę
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-black text-zinc-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="max-w-xl w-full bg-zinc-950 border border-zinc-800/80 rounded-3xl p-6 sm:p-10 shadow-2xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <span className="text-xs uppercase tracking-[0.3em] text-zinc-500 font-semibold">System Rezerwacji Online</span>
-          <h1 className="text-3xl font-extralight tracking-tight text-white mt-2">Zarezerwuj Wizytę</h1>
+    <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center">
+      <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl">
+        <div className="flex justify-between mb-8 border-b border-neutral-800 pb-4">
+          <span className={step === 1 ? 'text-white font-bold' : 'text-neutral-500'}>1. Usługa</span>
+          <span className={step === 2 ? 'text-white font-bold' : 'text-neutral-500'}>2. Termin</span>
+          <span className={step === 3 ? 'text-white font-bold' : 'text-neutral-500'}>3. Dane</span>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex justify-between items-center mb-10 px-4">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 ${
-                step === s 
-                  ? 'bg-white text-black font-bold ring-4 ring-white/10' 
-                  : step > s 
-                  ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30' 
-                  : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
-              }`}>
-                {step > s ? '✓' : s}
-              </div>
-              <span className={`text-xs hidden sm:inline tracking-wider ${step === s ? 'text-white font-medium' : 'text-zinc-600'}`}>
-                {s === 1 ? 'Usługa' : s === 2 ? 'Termin' : 'Dane'}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* KROK 1: Wybór Usługi */}
         {step === 1 && (
-          <div className="space-y-4">
-            <h2 className="text-sm uppercase tracking-wider text-zinc-400 mb-4 font-medium">Wybierz usługę:</h2>
-            <div className="grid gap-3">
-              {SERVICES.map((srv) => (
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold mb-4">Wybierz usługę</h2>
+            {SERVICES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { setSelectedService(s.name); setStep(2); }}
+                className={`w-full text-left p-4 rounded-xl border transition ${
+                  selectedService === s.name ? 'border-white bg-neutral-800' : 'border-neutral-800 hover:border-neutral-700'
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Wybierz godzinę</h2>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {TIME_SLOTS.map((slot) => (
                 <button
-                  key={srv.id}
-                  onClick={() => setSelectedService(srv.name)}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex justify-between items-center ${
-                    selectedService === srv.name
-                      ? 'bg-zinc-900 border-white text-white shadow-lg shadow-white/5'
-                      : 'bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700 text-zinc-300'
+                  key={slot}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={`p-3 text-center rounded-xl border transition ${
+                    selectedSlot === slot ? 'border-white bg-neutral-800' : 'border-neutral-800 hover:border-neutral-700'
                   }`}
                 >
-                  <div>
-                    <div className="font-medium text-white">{srv.name}</div>
-                    <div className="text-xs text-zinc-500 mt-1">{srv.duration}</div>
-                  </div>
-                  <div className="font-light text-zinc-200">{srv.price}</div>
+                  {slot}
                 </button>
               ))}
             </div>
-            <button
-              disabled={!selectedService}
-              onClick={() => setStep(2)}
-              className="w-full mt-6 py-4 bg-white text-black rounded-2xl font-semibold tracking-wide hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition duration-200"
-            >
-              Dalej: Wybierz Termin →
-            </button>
-          </div>
-        )}
-
-        {/* KROK 2: Wybór Daty i Godziny */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm uppercase tracking-wider text-zinc-400 mb-2 font-medium">Data wizyty:</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-white transition"
-              />
-            </div>
-
-            {selectedDate && (
-              <div>
-                <label className="block text-sm uppercase tracking-wider text-zinc-400 mb-3 font-medium">Dostępne godziny:</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {TIME_SLOTS.map((time) => (
-                    <button
-                      key={time}
-                      type="button"
-                      onClick={() => setSelectedTime(time)}
-                      className={`py-3 rounded-xl border text-sm font-medium transition ${
-                        selectedTime === time
-                          ? 'bg-white text-black border-white'
-                          : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 text-zinc-300'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setStep(1)}
-                className="w-1/3 py-4 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-2xl font-medium hover:bg-zinc-800 hover:text-white transition"
-              >
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="w-1/2 p-3 rounded-xl border border-neutral-800 text-neutral-400">
                 ← Wstecz
               </button>
               <button
-                disabled={!selectedDate || !selectedTime}
+                disabled={!selectedSlot}
                 onClick={() => setStep(3)}
-                className="w-2/3 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                className="w-1/2 p-3 rounded-xl bg-white text-black font-semibold disabled:opacity-50"
               >
-                Dalej: Twoje Dane →
+                Dalej
               </button>
             </div>
           </div>
         )}
 
-        {/* KROK 3: Dane Klienta i Finalizacja */}
         {step === 3 && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800/80 mb-6 text-xs text-zinc-400 space-y-1">
-              <div><strong className="text-zinc-200">Wybrana usługa:</strong> {selectedService}</div>
-              <div><strong className="text-zinc-200">Termin:</strong> {selectedDate} o {selectedTime}</div>
-            </div>
+            <h2 className="text-xl font-semibold mb-2">Twoje dane</h2>
+            <p className="text-sm text-neutral-400 mb-4">
+              Usługa: {selectedService}<br />
+              Termin: {selectedDate} o {selectedSlot}
+            </p>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-zinc-400 mb-1">Imię i Nazwisko</label>
+              <label className="text-xs uppercase text-neutral-400 font-semibold">Imię i Nazwisko</label>
               <input
                 required
                 type="text"
-                placeholder="np. Anna Kowalska"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 text-white focus:outline-none focus:border-white transition"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white mt-1 focus:outline-none focus:border-white"
               />
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-zinc-400 mb-1">Numer Telefonu</label>
+              <label className="text-xs uppercase text-neutral-400 font-semibold">Numer Telefonu</label>
               <input
                 required
                 type="tel"
-                placeholder="+48 000 000 000"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 text-white focus:outline-none focus:border-white transition"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white mt-1 focus:outline-none focus:border-white"
               />
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-zinc-400 mb-1">Adres E-mail</label>
+              <label className="text-xs uppercase text-neutral-400 font-semibold">Adres E-mail</label>
               <input
                 required
                 type="email"
-                placeholder="anna@example.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 text-white focus:outline-none focus:border-white transition"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-white mt-1 focus:outline-none focus:border-white"
               />
             </div>
 
-            <div className="flex gap-3 pt-6">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="w-1/3 py-4 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-2xl font-medium hover:bg-zinc-800 hover:text-white transition"
-              >
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={() => setStep(2)} className="w-1/2 p-3 rounded-xl border border-neutral-800 text-neutral-400">
                 ← Wstecz
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-2/3 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200 disabled:opacity-50 transition"
+                className="w-1/2 p-3 rounded-xl bg-white text-black font-semibold disabled:opacity-50"
               >
-                {loading ? 'Rezerwuję...' : 'Zatwierdź Rezerwację'}
+                {loading ? 'Rezerwuję...' : 'Rezerwuj'}
               </button>
             </div>
           </form>
         )}
       </div>
-    </main>
+    </div>
   );
 }
