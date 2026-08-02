@@ -6,7 +6,9 @@ import { Resend } from 'resend';
 
 export async function POST(req: Request) {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
+    const apiKey = process.env.RESEND_API_KEY || 're_placeholder';
+    const resend = new Resend(apiKey);
+
     const { id } = await req.json();
 
     if (!id) {
