@@ -9,21 +9,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, phone, service, date, time } = body;
 
-    // Budujemy poprawne timestampy dla bazy
+    // Przygotowanie timestampów ISO
     const startIso = date && time ? new Date(`${date}T${time}:00Z`).toISOString() : new Date().toISOString();
     const endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
 
-    // Mapowanie 1:1 z Twoją tabelą w Supabase
+    // Mapowanie 1:1 z polską tabelą 'spotkania'
     const { data, error } = await supabase
-      .from('appointments')
+      .from('spotkania')
       .insert([
         {
-          client_name: name,
-          client_email: email,
-          client_phone: phone,
-          start_time: startIso,
-          end_time: endIso,
-          status: 'confirmed'
+          identyfikator_dostawcy: 1,
+          identyfikator_usługi: service ? Number(service) : 1,
+          czas_rozpoczęcia: startIso,
+          czas_końcowy: endIso,
+          status: 'potwierdzony',
+          'adres_e-mail_klienta': email,
+          nazwa_klienta: name,
+          telefon_klienta: phone,
         }
       ])
       .select();
@@ -33,14 +35,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Wysyłka maila potwierdzającego (opcjonalnie)
+    // Wysyłka maila powiadomienia (Resend)
     if (process.env.RESEND_API_KEY && email) {
       try {
         await resend.emails.send({
           from: 'onboarding@resend.dev',
           to: email,
           subject: 'Potwierdzenie rezerwacji',
-          html: `<p>Cześć <strong>${name}</strong>,</p><p>Twoja rezerwacja na usługę została pomyślnie zrealizowana!</p>`
+          html: `<p>Cześć <strong>${name}</strong>,</p><p>Twoja rezerwacja została pomyślnie złożona!</p>`
         });
       } catch (e) {
         console.error('Błąd wysyłki Resend:', e);
