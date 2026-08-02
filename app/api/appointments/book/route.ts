@@ -9,22 +9,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, phone, service, date, time } = body;
 
+    // Tworzenie poprawnych dat ISO
     const startIso = date && time ? new Date(`${date}T${time}:00Z`).toISOString() : new Date().toISOString();
     const endIso = new Date(new Date(startIso).getTime() + 60 * 60 * 1000).toISOString();
 
-    // Wpisujemy dokładnie 'spotkania' (zwykłe 'a' na końcu)
+    // Wstawienie danych bezpośrednio do tabeli 'appointments'
     const { data, error } = await supabase
-      .from('spotkania')
+      .from('appointments')
       .insert([
         {
-          identyfikator_dostawcy: 1,
-          identyfikator_usługi: service ? Number(service) : 1,
-          'czas_rozpoczęcia': startIso,
-          'czas_końcowy': endIso,
-          status: 'potwierdzony',
-          'adres_e-mail_klienta': email,
-          nazwa_klienta: name,
-          telefon_klienta: phone,
+          provider_id: 1,
+          service_id: service ? Number(service) : 1,
+          client_name: name,
+          client_email: email,
+          client_phone: phone,
+          start_time: startIso,
+          end_time: endIso,
+          status: 'confirmed'
         }
       ])
       .select();
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    // Opcjonalna wysyłka e-maila przez Resend
     if (process.env.RESEND_API_KEY && email) {
       try {
         await resend.emails.send({
