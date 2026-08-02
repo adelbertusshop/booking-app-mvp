@@ -1,49 +1,36 @@
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { bookingSchema } from '@/lib/schemas/booking';
 import { Resend } from 'resend';
-
-const ADMIN_EMAIL = 'wojciechjarosz41@gmail.com';
 
 export async function POST(req: Request) {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
     const body = await req.json();
-
-    const parseResult = bookingSchema.safeParse(body);
-    if (!parseResult.success) {
-      const firstError = parseResult.error.errors[0]?.message || 'Błąd walidacji';
-      return NextResponse.json({ error: firstError }, { status: 400 });
-    }
-
-    const { name, email, phone, date, time, service } = parseResult.data;
+    const { name, email, phone, service, date } = body;
 
     const { data, error } = await supabase
       .from('appointments')
-      .insert([{ name, email, phone, date, time, service }])
+      .insert([{ name, email, phone, service, date }])
       .select();
 
     if (error) {
+      console.error('Błąd Supabase:', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    try {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+      const resend = new Resend(apiKey);
       await resend.emails.send({
-        from: 'onboarding@resend.dev',
-        to: ADMIN_EMAIL,
-        subject: `Nowa rezerwacja: ${name}`,
-        html: `<p><strong>Usługa:</strong> ${service}</p>
-               <p><strong>Data:</strong> ${date} godz. ${time}</p>
-               <p><strong>Klient:</strong> ${name} (${email}, tel: ${phone})</p>`,
+        from: 'Rezerwacje <onboarding@resend.dev>',
+        to: [email],
+        subject: `Potwierdzenie rezerwacji: ${service}`,
+        html: `<p>Cześć <strong>${name}</strong>!</p><p>Twoja wizyta na <strong>${service}</strong> w terminie <strong>${date}</strong> została zarezerwowana.</p>`,
       });
-    } catch (emailErr) {
-      console.error('Błąd wysyłki maila:', emailErr);
     }
 
-    return NextResponse.json({ success: true, booking: data });
-  } catch (err) {
-    return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
+    return NextResponse.json({ success: true, data }, { status: 200 });
+  } catch (err: any) {
+    console.error('Błąd serwera:', err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
