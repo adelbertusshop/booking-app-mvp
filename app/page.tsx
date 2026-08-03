@@ -14,7 +14,7 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Ustawiamy dzisiejszą datę przy pierwszym załadowaniu
+  // Domyślnie ustawiamy dzisiejszą datę przy załadowaniu
   useEffect(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -23,9 +23,22 @@ export default function BookingPage() {
     setSelectedDate(`${year}-${month}-${day}`);
   }, []);
 
-  // Pobieramy dostępne godziny po zmianie daty
+  // Pobieramy dostępne godziny po zmianie daty (z walidacją)
   useEffect(() => {
     if (!selectedDate) return;
+
+    // Walidacja daty: musimy mieć poprawny format YYYY-MM-DD i rok 4-cyfrowy
+    const dateParts = selectedDate.split('-');
+    if (dateParts.length !== 3 || dateParts[0].length !== 4) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    const year = parseInt(dateParts[0], 10);
+    if (isNaN(year) || year < 2024 || year > 2030) {
+      setAvailableSlots([]);
+      return;
+    }
 
     const fetchSlots = async () => {
       setLoadingSlots(true);
@@ -38,9 +51,11 @@ export default function BookingPage() {
           setAvailableSlots(data.availableSlots || []);
         } else {
           console.error(data.error);
+          setAvailableSlots([]);
         }
       } catch (err) {
         console.error('Błąd pobierania slotów:', err);
+        setAvailableSlots([]);
       } finally {
         setLoadingSlots(false);
       }
@@ -82,7 +97,7 @@ export default function BookingPage() {
         setPhone('');
         setSelectedTime('');
         
-        // Odświeżenie slotów po rejestracji
+        // Odświeżamy sloty
         const refreshed = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
         const refreshedData = await refreshed.json();
         if (refreshed.ok) setAvailableSlots(refreshedData.availableSlots || []);
@@ -112,6 +127,8 @@ export default function BookingPage() {
             <input
               type="date"
               value={selectedDate}
+              min="2026-01-01"
+              max="2027-12-31"
               onChange={(e) => setSelectedDate(e.target.value)}
               required
               className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-slate-500"
@@ -125,7 +142,11 @@ export default function BookingPage() {
             {loadingSlots ? (
               <p className="text-xs text-slate-500">Sprawdzanie dostępności...</p>
             ) : availableSlots.length === 0 ? (
-              <p className="text-xs text-rose-400">Brak wolnych terminów w tym dniu.</p>
+              <p className="text-xs text-rose-400">
+                {!selectedDate || selectedDate.split('-')[0]?.length !== 4 
+                  ? 'Wybierz poprawną datę z kalendarza.' 
+                  : 'Brak wolnych terminów w tym dniu.'}
+              </p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {availableSlots.map((slot) => (
