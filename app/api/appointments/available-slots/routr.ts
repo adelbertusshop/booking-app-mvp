@@ -9,13 +9,13 @@ const ALL_SLOTS = [
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const dateStr = searchParams.get('date'); // np. "2026-08-03"
+    const dateStr = searchParams.get('date'); // YYYY-MM-DD
 
     if (!dateStr) {
       return NextResponse.json({ error: 'Brak podanej daty' }, { status: 400 });
     }
 
-    // Pobieramy rezerwacje, których start_time zaczyna się od wybranej daty (YYYY-MM-DD)
+    // Pobieramy wizyty bez przeliczania na strefy czasowe – sprawdzamy przedział tekstowy
     const { data: bookedAppointments, error } = await supabase
       .from('appointments')
       .select('start_time')
@@ -27,14 +27,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Wyciągamy zajęte godziny w formacie HH:MM
+    // Pobieramy zaplanowane godziny w formacie HH:MM
     const bookedTimes = (bookedAppointments || []).map((app) => {
-      // Wyciągamy bezpośrednio ciąg znaków godziny (np. z "2026-08-03T14:00:00" robimy "14:00")
-      const timePart = app.start_time.split('T')[1];
-      return timePart ? timePart.substring(0, 5) : '';
+      const parts = app.start_time.split('T');
+      if (parts[1]) {
+        return parts[1].substring(0, 5);
+      }
+      return '';
     });
 
-    // Filtrujemy wolne sloty
+    // Zostawiamy wolne sloty
     const availableSlots = ALL_SLOTS.filter((slot) => !bookedTimes.includes(slot));
 
     return NextResponse.json({ availableSlots, bookedTimes });

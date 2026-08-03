@@ -14,19 +14,14 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Domyślnie ustawiamy dzisiejszą datę w formacie YYYY-MM-DD
+  // Ustawiamy dzisiejszą datę przy pierwszym załadowaniu
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setSelectedDate(today);
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
   }, []);
-
-  // Funkcja formatująca dowolną datę do YYYY-MM-DD
-  const formatToISODate = (rawDate: string) => {
-    if (!rawDate) return '';
-    const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return rawDate;
-    return d.toISOString().split('T')[0];
-  };
 
   // Pobieramy dostępne godziny po zmianie daty
   useEffect(() => {
@@ -36,10 +31,8 @@ export default function BookingPage() {
       setLoadingSlots(true);
       setSelectedTime('');
 
-      const cleanDate = formatToISODate(selectedDate);
-
       try {
-        const res = await fetch(`/api/appointments/available-slots?date=${cleanDate}`);
+        const res = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
         const data = await res.json();
         if (res.ok) {
           setAvailableSlots(data.availableSlots || []);
@@ -66,8 +59,7 @@ export default function BookingPage() {
     setSubmitting(true);
     setMessage('');
 
-    const cleanDate = formatToISODate(selectedDate);
-    const fullStartDateTime = `${cleanDate}T${selectedTime}:00`;
+    const fullStartDateTime = `${selectedDate}T${selectedTime}:00`;
 
     try {
       const res = await fetch('/api/appointments', {
@@ -91,7 +83,7 @@ export default function BookingPage() {
         setSelectedTime('');
         
         // Odświeżenie slotów po rejestracji
-        const refreshed = await fetch(`/api/appointments/available-slots?date=${cleanDate}`);
+        const refreshed = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
         const refreshedData = await refreshed.json();
         if (refreshed.ok) setAvailableSlots(refreshedData.availableSlots || []);
       } else {
