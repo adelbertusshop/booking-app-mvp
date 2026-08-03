@@ -13,8 +13,9 @@ export default function BookingPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [apiError, setApiError] = useState('');
 
-  // Domyślnie ustawiamy dzisiejszą datę przy załadowaniu
+  // Ustawienie dzisiejszej daty lokalnej przy załadowaniu strony
   useEffect(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -23,19 +24,19 @@ export default function BookingPage() {
     setSelectedDate(`${year}-${month}-${day}`);
   }, []);
 
-  // Pobieramy dostępne godziny po zmianie daty (z walidacją)
+  // Pobieranie slotów przy zmianie daty
   useEffect(() => {
     if (!selectedDate) return;
 
-    // Walidacja daty: musimy mieć poprawny format YYYY-MM-DD i rok 4-cyfrowy
-    const dateParts = selectedDate.split('-');
-    if (dateParts.length !== 3 || dateParts[0].length !== 4) {
+    // Sprawdzamy czy data jest kompletna i poprawna (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(selectedDate)) {
       setAvailableSlots([]);
       return;
     }
 
-    const year = parseInt(dateParts[0], 10);
-    if (isNaN(year) || year < 2024 || year > 2030) {
+    const year = parseInt(selectedDate.split('-')[0], 10);
+    if (year < 2024 || year > 2030) {
       setAvailableSlots([]);
       return;
     }
@@ -43,18 +44,20 @@ export default function BookingPage() {
     const fetchSlots = async () => {
       setLoadingSlots(true);
       setSelectedTime('');
+      setApiError('');
 
       try {
         const res = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
         const data = await res.json();
+
         if (res.ok) {
           setAvailableSlots(data.availableSlots || []);
         } else {
-          console.error(data.error);
+          setApiError(data.error || 'Nie udało się pobrać terminów.');
           setAvailableSlots([]);
         }
       } catch (err) {
-        console.error('Błąd pobierania slotów:', err);
+        setApiError('Błąd połączenia z serwerem.');
         setAvailableSlots([]);
       } finally {
         setLoadingSlots(false);
@@ -97,7 +100,7 @@ export default function BookingPage() {
         setPhone('');
         setSelectedTime('');
         
-        // Odświeżamy sloty
+        // Odświeżenie listy slotów po rezerwacji
         const refreshed = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
         const refreshedData = await refreshed.json();
         if (refreshed.ok) setAvailableSlots(refreshedData.availableSlots || []);
@@ -141,9 +144,11 @@ export default function BookingPage() {
             </label>
             {loadingSlots ? (
               <p className="text-xs text-slate-500">Sprawdzanie dostępności...</p>
+            ) : apiError ? (
+              <p className="text-xs text-rose-400">Błąd: {apiError}</p>
             ) : availableSlots.length === 0 ? (
               <p className="text-xs text-rose-400">
-                {!selectedDate || selectedDate.split('-')[0]?.length !== 4 
+                {!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) 
                   ? 'Wybierz poprawną datę z kalendarza.' 
                   : 'Brak wolnych terminów w tym dniu.'}
               </p>

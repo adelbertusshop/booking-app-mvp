@@ -9,38 +9,45 @@ const ALL_SLOTS = [
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const dateStr = searchParams.get('date'); // YYYY-MM-DD
+    const dateStr = searchParams.get('date'); // Oczekiwany format: YYYY-MM-DD
 
-    if (!dateStr) {
-      return NextResponse.json({ error: 'Brak podanej daty' }, { status: 400 });
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return NextResponse.json({ error: 'Nieprawidłowy format daty' }, { status: 400 });
     }
 
-    // Pobieramy wizyty bez przeliczania na strefy czasowe – sprawdzamy przedział tekstowy
+    // Zakres wyszukiwania na całą dobę (od początku do końca wybranego dnia)
+    const startOfDay = `${dateStr}T00:00:00.000Z`;
+    const endOfDay = `${dateStr}T23:59:59.999Z`;
+
+    // Pobieramy rezerwacje dla danego dnia
     const { data: bookedAppointments, error } = await supabase
       .from('appointments')
-      .select('start_time')
+      .select('start_time, status')
       .neq('status', 'cancelled')
       .gte('start_time', `${dateStr}T00:00:00`)
       .lte('start_time', `${dateStr}T23:59:59`);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Supabase query error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Pobieramy zaplanowane godziny w formacie HH:MM
+    // Wyciągamy zajęte godziny w formacie HH:MM
     const bookedTimes = (bookedAppointments || []).map((app) => {
-      const parts = app.start_time.split('T');
-      if (parts[1]) {
-        return parts[1].substring(0, 5);
-      }
-      return '';
+      // Obsługa formatów 'YYYY-MM-DDTHH:mm:ss' oraz 'YYYY-MM-DD HH:mm:ss'
+      const timePart = app.start_time.includes('T') 
+        ? app.start_time.split('T')[1] 
+        : app.start_time.split(' ')[1];
+      
+      return timePart ? timePart.substring(0, 5) : '';
     });
 
-    // Zostawiamy wolne sloty
+    // Filtrujemy dostępne sloty
     const availableSlots = ALL_SLOTS.filter((slot) => !bookedTimes.includes(slot));
 
     return NextResponse.json({ availableSlots, bookedTimes });
   } catch (err: any) {
+    console.error('Server error:', err);
     return NextResponse.json({ error: err.message || 'Błąd serwera' }, { status: 500 });
   }
 }
