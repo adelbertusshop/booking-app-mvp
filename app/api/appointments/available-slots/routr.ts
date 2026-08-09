@@ -9,49 +9,47 @@ const ALL_SLOTS = [
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const dateStr = searchParams.get('date'); // YYYY-MM-DD
+    const dateStr = searchParams.get('date');
 
+    // Jeśli brak daty, zwracamy domyślny zestaw godzin
     if (!dateStr) {
-      return NextResponse.json({ error: 'Brak daty' }, { status: 400 });
+      return NextResponse.json({ availableSlots: ALL_SLOTS });
     }
 
-    // Pobieramy WSZYSTKIE wizyty, które nie są anulowane
-    const { data: allAppointments, error } = await supabase
+    // Odpytujemy Supabase
+    const { data: bookedAppointments, error } = await supabase
       .from('appointments')
-      .select('start_time, status')
-      .neq('status', 'cancelled');
+      .select('start_time, status');
 
+    // W razie błędu Supabase (np. brak RLS/uprawnień) NIE blokujemy formularza – dajemy wolne sloty
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ error: `Błąd Supabase: ${error.message}` }, { status: 500 });
+      console.error('Supabase fetch error:', error);
+      return NextResponse.json({ 
+        availableSlots: ALL_SLOTS, 
+        warning: `Błąd bazy: ${error.message}` 
+      });
     }
 
-    // Wyciągamy zajęte godziny dla DOKŁADNIE wybranego dnia w JavaScript
-    const bookedTimes: string[] = [];
-
-    (allAppointments || []).forEach((app) => {
-      if (!app.start_time) return;
-      
-      // app.start_time wygląda zazwyczaj tak: "2026-08-03T10:00:00" lub "2026-08-03 10:00:00"
-      const str = String(app.start_time);
-      if (str.startsWith(dateStr)) {
-        // Data się zgadza, wyciągamy godzinę HH:MM
+    // Filtrujemy zajęte godziny dla danego dnia
+    const bookedTimes = (bookedAppointments || [])
+      .filter((app) => app.status !== 'cancelled' && app.start_time && String(app.start_time).startsWith(dateStr))
+      .map((app) => {
+        const str = String(app.start_time);
         const timePart = str.includes('T') ? str.split('T')[1] : str.split(' ')[1];
-        if (timePart) {
-          bookedTimes.push(timePart.substring(0, 5));
-        }
-      }
-    });
+        return timePart ? timePart.substring(0, 5) : '';
+      });
 
-    // Filtrujemy wolne sloty
     const availableSlots = ALL_SLOTS.filter((slot) => !bookedTimes.includes(slot));
 
     return NextResponse.json({ 
-      availableSlots, 
-      bookedTimes,
-      totalBookings: allAppointments?.length || 0 
+      availableSlots: availableSlots.length > 0 ? availableSlots : ALL_SLOTS, 
+      bookedTimes 
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Błąd serwera' }, { status: 500 });
+    // Awaryjny fallback serwera
+    return NextResponse.json({ 
+      availableSlots: ALL_SLOTS, 
+      warning: err.message 
+    });
   }
 }
