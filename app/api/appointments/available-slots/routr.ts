@@ -13,7 +13,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Wyliczamy end_time ISO
     const startDate = new Date(start_time);
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
 
