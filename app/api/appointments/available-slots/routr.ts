@@ -1,55 +1,54 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-const ALL_SLOTS = [
-  '09:00', '10:00', '11:00', '12:00', 
-  '13:00', '14:00', '15:00', '16:00', '17:00'
-];
-
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const dateStr = searchParams.get('date');
+    const body = await req.json();
+    const { client_name, client_email, client_phone, start_time } = body;
 
-    // Jeśli brak daty, zwracamy domyślny zestaw godzin
-    if (!dateStr) {
-      return NextResponse.json({ availableSlots: ALL_SLOTS });
+    if (!client_name || !client_email || !client_phone || !start_time) {
+      return NextResponse.json(
+        { error: 'Wszystkie pola są wymagane.' },
+        { status: 400 }
+      );
     }
 
-    // Odpytujemy Supabase
-    const { data: bookedAppointments, error } = await supabase
+    // Automatycznie wyliczamy end_time (+1 godzina od start_time)
+    const startDate = new Date(start_time);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    
+    // Formatowanie daty do postaci akceptowanej przez Postgres
+    const end_time = endDate.toISOString();
+
+    // Wstawienie rezerwacji ze start_time oraz end_time
+    const { data, error } = await supabase
       .from('appointments')
-      .select('start_time, status');
+      .insert([
+        {
+          client_name,
+          client_email,
+          client_phone,
+          start_time,
+          end_time,
+          status: 'confirmed',
+        },
+      ])
+      .select();
 
-    // W razie błędu Supabase (np. brak RLS/uprawnień) NIE blokujemy formularza – dajemy wolne sloty
     if (error) {
-      console.error('Supabase fetch error:', error);
-      return NextResponse.json({ 
-        availableSlots: ALL_SLOTS, 
-        warning: `Błąd bazy: ${error.message}` 
-      });
+      console.error('Supabase Insert Error:', error);
+      return NextResponse.json(
+        { error: `Błąd bazy: ${error.message}` },
+        { status: 500 }
+      );
     }
 
-    // Filtrujemy zajęte godziny dla danego dnia
-    const bookedTimes = (bookedAppointments || [])
-      .filter((app) => app.status !== 'cancelled' && app.start_time && String(app.start_time).startsWith(dateStr))
-      .map((app) => {
-        const str = String(app.start_time);
-        const timePart = str.includes('T') ? str.split('T')[1] : str.split(' ')[1];
-        return timePart ? timePart.substring(0, 5) : '';
-      });
-
-    const availableSlots = ALL_SLOTS.filter((slot) => !bookedTimes.includes(slot));
-
-    return NextResponse.json({ 
-      availableSlots: availableSlots.length > 0 ? availableSlots : ALL_SLOTS, 
-      bookedTimes 
-    });
+    return NextResponse.json({ success: true, appointment: data }, { status: 201 });
   } catch (err: any) {
-    // Awaryjny fallback serwera
-    return NextResponse.json({ 
-      availableSlots: ALL_SLOTS, 
-      warning: err.message 
-    });
+    console.error('Server Catch Error:', err);
+    return NextResponse.json(
+      { error: err.message || 'Wystąpił nieoczekiwany błąd.' },
+      { status: 500 }
+    );
   }
 }
