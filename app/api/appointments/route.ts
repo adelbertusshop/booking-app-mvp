@@ -23,6 +23,8 @@ export async function POST(req: Request) {
       start_time: startDate.toISOString(),
       end_time: endDate.toISOString(),
       status: 'confirmed',
+      provider_id: 1, // <-- Domyślny ID dostawcy
+      service_id: 1,  // <-- Domyślny ID usługi
     };
 
     const { data, error } = await supabase
