@@ -8,46 +8,42 @@ export async function POST(req: Request) {
 
     if (!client_name || !client_email || !client_phone || !start_time) {
       return NextResponse.json(
-        { error: 'Wszystkie pola są wymagane.' },
+        { error: 'Brakujące wymagane pola formularza.' },
         { status: 400 }
       );
     }
 
-    // Automatycznie wyliczamy end_time (+1 godzina od start_time)
+    // Wyliczamy end_time ISO
     const startDate = new Date(start_time);
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-    
-    // Formatowanie daty do postaci akceptowanej przez Postgres
-    const end_time = endDate.toISOString();
 
-    // Wstawienie rezerwacji ze start_time oraz end_time
+    const payload = {
+      client_name,
+      client_email,
+      client_phone,
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      status: 'confirmed',
+    };
+
     const { data, error } = await supabase
       .from('appointments')
-      .insert([
-        {
-          client_name,
-          client_email,
-          client_phone,
-          start_time,
-          end_time,
-          status: 'confirmed',
-        },
-      ])
+      .insert([payload])
       .select();
 
     if (error) {
-      console.error('Supabase Insert Error:', error);
+      console.error('Supabase Error:', error);
       return NextResponse.json(
-        { error: `Błąd bazy: ${error.message}` },
-        { status: 500 }
+        { error: `Supabase: ${error.message} (${error.code || 'NO_CODE'})` },
+        { status: 400 }
       );
     }
 
-    return NextResponse.json({ success: true, appointment: data }, { status: 201 });
+    return NextResponse.json({ success: true, appointment: data }, { status: 200 });
   } catch (err: any) {
-    console.error('Server Catch Error:', err);
+    console.error('API Error:', err);
     return NextResponse.json(
-      { error: err.message || 'Wystąpił nieoczekiwany błąd.' },
+      { error: `Błąd serwera API: ${err.message || 'Unknown error'}` },
       { status: 500 }
     );
   }

@@ -14,7 +14,6 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Ustawiamy dzisiejszą datę lokalną
   useEffect(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -23,7 +22,6 @@ export default function BookingPage() {
     setSelectedDate(`${year}-${month}-${day}`);
   }, []);
 
-  // Pobieranie wolnych godzin
   useEffect(() => {
     if (!selectedDate) return;
 
@@ -38,7 +36,6 @@ export default function BookingPage() {
         if (data.availableSlots && data.availableSlots.length > 0) {
           setAvailableSlots(data.availableSlots);
         } else {
-          // Rezerwowy zestaw kafelków
           setAvailableSlots(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']);
         }
       } catch (err) {
@@ -75,7 +72,14 @@ export default function BookingPage() {
         }),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: any = {};
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Błąd serwera (${res.status}): ${responseText.substring(0, 150)}`);
+      }
 
       if (res.ok) {
         setMessage(' Rezerwacja złożona pomyślnie!');
@@ -88,10 +92,10 @@ export default function BookingPage() {
         const refreshedData = await refreshed.json();
         if (refreshedData.availableSlots) setAvailableSlots(refreshedData.availableSlots);
       } else {
-        setMessage(` Błąd: ${data.error || 'Nie udało się zarezerwować.'}`);
+        setMessage(` Błąd: ${data.error || responseText}`);
       }
-    } catch (err) {
-      setMessage(' Wystąpił błąd podczas wysyłania zgłoszenia.');
+    } catch (err: any) {
+      setMessage(` Szczegóły błędu: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -196,9 +200,9 @@ export default function BookingPage() {
         </form>
 
         {message && (
-          <p className="text-center text-sm font-medium text-slate-300 bg-slate-950 py-2 border border-slate-800 rounded">
+          <div className="text-center text-xs font-mono text-rose-300 bg-slate-950 p-3 border border-slate-800 rounded break-words">
             {message}
-          </p>
+          </div>
         )}
       </div>
     </main>
