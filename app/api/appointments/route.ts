@@ -1,90 +1,39 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { client_name, client_email, client_phone, start_time } = body;
+    const body = await request.json();
+    const { client_name, client_email, client_phone, start_time, service_id } = body;
 
-    if (!client_name || !client_email || !client_phone || !start_time) {
+    if (!client_name || !client_email || !client_phone || !start_time || !service_id) {
       return NextResponse.json(
-        { error: 'Brakujące wymagane pola formularza.' },
+        { error: 'Uzupełnij wszystkie wymagane pola!' },
         { status: 400 }
       );
     }
 
-    const startDate = new Date(start_time);
-    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-
-    const payload = {
-      client_name,
-      client_email,
-      client_phone,
-      start_time: startDate.toISOString(),
-      end_time: endDate.toISOString(),
-      status: 'confirmed',
-      provider_id: 1,
-      service_id: 1,
-    };
-
-    // 1. Zapis w Supabase
     const { data, error } = await supabase
       .from('appointments')
-      .insert([payload])
+      .insert([
+        {
+          client_name,
+          client_email,
+          client_phone,
+          start_time,
+          service_id: Number(service_id),
+        },
+      ])
       .select();
 
     if (error) {
-      console.error('Supabase Error:', error);
-      return NextResponse.json(
-        { error: `Supabase: ${error.message} (${error.code || 'NO_CODE'})` },
-        { status: 400 }
-      );
+      console.error('Błąd Supabase:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 2. Wysyłka maila przez Resend
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const formattedDate = startDate.toLocaleDateString('pl-PL', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        const formattedTime = startDate.toLocaleTimeString('pl-PL', {
-  hour: '2-digit',
-  minute: '2-digit'
-});
-
-        await resend.emails.send({
-          from: 'Nowa Rezerwacja <onboarding@resend.dev>',
-          to: ['wojciechjarosz41@gmail.com'], 
-          subject: `Nowa rezerwacja od: ${client_name}`,
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; color: #333;">
-              <h2>Masz nową rezerwację!</h2>
-              <p>Klient <strong>${client_name}</strong> właśnie zapisał się przez stronę.</p>
-              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p><strong>E-mail klienta:</strong> ${client_email}</p>
-              <p><strong>Telefon:</strong> ${client_phone}</p>
-              <p><strong>Data:</strong> ${formattedDate}</p>
-              <p><strong>Godzina:</strong> ${formattedTime}</p>
-            </div>
-          `,
-        });
-      } catch (emailErr) {
-        console.error('Błąd Resend:', emailErr);
-      }
-    }
-
-    return NextResponse.json({ success: true, appointment: data }, { status: 200 });
+    return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: any) {
-    console.error('API Error:', err);
-    return NextResponse.json(
-      { error: `Błąd serwera API: ${err.message || 'Unknown error'}` },
-      { status: 500 }
-    );
+    console.error('Błąd serwera:', err);
+    return NextResponse.json({ error: err.message || 'Wystąpił błąd serwera' }, { status: 500 });
   }
 }
