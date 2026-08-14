@@ -54,23 +54,23 @@ export async function POST(req: Request) {
           day: 'numeric',
         });
         const formattedTime = startDate.toLocaleTimeString('pl-PL', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+  hour: '2-digit',
+  minute: '2-digit'
+});
 
         await resend.emails.send({
-          from: 'Rezerwacje <onboarding@resend.dev>',
-          to: [client_email],
-          subject: 'Potwierdzenie rezerwacji',
+          from: 'Nowa Rezerwacja <onboarding@resend.dev>',
+          to: ['wojciechjarosz41@gmail.com'], 
+          subject: `Nowa rezerwacja od: ${client_name}`,
           html: `
             <div style="font-family: sans-serif; padding: 20px; color: #333;">
-              <h2>Dziękujemy za rezerwację!</h2>
-              <p>Cześć <strong>${client_name}</strong>,</p>
-              <p>Twoja wizyta została zarejestrowana.</p>
+              <h2>Masz nową rezerwację!</h2>
+              <p>Klient <strong>${client_name}</strong> właśnie zapisał się przez stronę.</p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+              <p><strong>E-mail klienta:</strong> ${client_email}</p>
+              <p><strong>Telefon:</strong> ${client_phone}</p>
               <p><strong>Data:</strong> ${formattedDate}</p>
               <p><strong>Godzina:</strong> ${formattedTime}</p>
-              <p><strong>Telefon:</strong> ${client_phone}</p>
             </div>
           `,
         });
