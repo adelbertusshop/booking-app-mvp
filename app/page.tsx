@@ -98,21 +98,31 @@ export default function BookingPage() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">2. WYBIERZ DZIEŃ</label>
-            <input type="date" onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">3. WYBIERZ GODZINĘ</label>
-            <div className="grid grid-cols-3 gap-2">
-              {availableSlots.map((slot) => (
-                <button key={slot} type="button" onClick={() => setSelectedTime(slot)} className={`p-2 rounded-lg text-xs ${selectedTime === slot ? 'bg-blue-600' : 'bg-slate-800'}`}>
-                  {slot}
-                </button>
-              ))}
-            </div>
-          </div>
+         <div>
+  <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
+    1. Wybierz usługę
+  </label>
+  <select
+    value={serviceId || ""}
+    onChange={(e) => setServiceId(Number(e.target.value))}
+    className="w-full bg-slate-800 border border-slate-700 text-white rounded p-2"
+  >
+    <option value="" disabled className="bg-slate-800 text-slate-400">
+      -- Wybierz usługę z listy --
+    </option>
+    {services && services.length > 0 ? (
+      services.map((s) => (
+        <option key={s.id} value={s.id} className="bg-slate-800 text-white">
+          {s.name} ({s.price} zł, {s.duration_minutes} min)
+        </option>
+      ))
+    ) : (
+      <option disabled className="bg-slate-800 text-slate-400">
+        Ładowanie usług lub brak danych...
+      </option>
+    )}
+  </select>
+</div>
 
           <div className="space-y-3">
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">4. TWOJE DANE</label>
