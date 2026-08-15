@@ -8,7 +8,7 @@ export default function BookingPage() {
   const [phone, setPhone] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [serviceId, setServiceId] = useState<number>(1);
+  const [serviceId, setServiceId] = useState<number | ''>('');
   const [services, setServices] = useState<any[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -19,14 +19,14 @@ export default function BookingPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const res = await fetch('/api/services');
+        const res = await fetch('/api/appointments/services');
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setServices(data);
           setServiceId(data[0].id);
         }
       } catch (err) {
-        console.error('Błąd:', err);
+        console.error('Błąd pobierania usług:', err);
       } finally {
         setLoadingServices(false);
       }
@@ -53,6 +53,10 @@ export default function BookingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!serviceId || !selectedDate || !selectedTime) {
+      setMessage('Wypełnij wszystkie pola rezerwacji.');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch('/api/appointments', {
@@ -67,12 +71,12 @@ export default function BookingPage() {
         }),
       });
       if (res.ok) {
-        setMessage('Rezerwacja potwierdzona!');
+        setMessage('Rezerwacja została pomyślnie złożona!');
       } else {
-        setMessage('Błąd rezerwacji.');
+        setMessage('Błąd podczas składania rezerwacji.');
       }
     } catch {
-      setMessage('Błąd serwera.');
+      setMessage('Błąd połączenia z serwerem.');
     } finally {
       setSubmitting(false);
     }
@@ -82,59 +86,124 @@ export default function BookingPage() {
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
         <h1 className="text-2xl font-bold text-center mb-6">Zarezerwuj Wizytę</h1>
+        
+        {message && (
+          <div className="mb-4 p-3 bg-blue-600/20 border border-blue-500 rounded text-center text-sm text-blue-200">
+            {message}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* NOWA SEKCJA: WYBIERZ USŁUGĘ */}
+          {/* 1. WYBIERZ USŁUGĘ */}
           <div>
-  <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
-    1. Wybierz usługę
-  </label>
-  <select
-    value={serviceId || ""}
-    onChange={(e) => setServiceId(Number(e.target.value))}
-    className="w-full bg-slate-800 border border-slate-700 text-white rounded p-2"
-  >
-    <option value="" disabled className="bg-slate-800 text-slate-400">
-      -- Wybierz usługę z listy --
-    </option>
-    {services && services.length > 0 ? (
-      services.map((s) => (
-        <option key={s.id} value={s.id} className="bg-slate-800 text-white">
-          {s.name} ({s.price} zł, {s.duration_minutes} min)
-        </option>
-      ))
-    ) : (
-      <option disabled className="bg-slate-800 text-slate-400">
-        Ładowanie usług lub brak danych...
-      </option>
-    )}
-  </select>
-</div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">2. WYBIERZ DZIEŃ</label>
-            <input type="date" onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3" />
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              1. Wybierz usługę
+            </label>
+            <select
+              value={serviceId}
+              onChange={(e) => setServiceId(Number(e.target.value))}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3"
+            >
+              {loadingServices ? (
+                <option value="" disabled className="bg-slate-800 text-slate-400">
+                  Ładowanie usług...
+                </option>
+              ) : services.length > 0 ? (
+                services.map((s) => (
+                  <option key={s.id} value={s.id} className="bg-slate-800 text-white">
+                    {s.name} ({s.price} zł, {s.duration_minutes} min)
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled className="bg-slate-800 text-slate-400">
+                  Brak dostępnych usług
+                </option>
+              )}
+            </select>
           </div>
 
+          {/* 2. WYBIERZ DZIEŃ */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">3. WYBIERZ GODZINĘ</label>
-            <div className="grid grid-cols-3 gap-2">
-              {availableSlots.map((slot) => (
-                <button key={slot} type="button" onClick={() => setSelectedTime(slot)} className={`p-2 rounded-lg text-xs ${selectedTime === slot ? 'bg-blue-600' : 'bg-slate-800'}`}>
-                  {slot}
-                </button>
-              ))}
-            </div>
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              2. WYBIERZ DZIEŃ
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3"
+            />
           </div>
 
+          {/* 3. WYBIERZ GODZINĘ */}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              3. WYBIERZ GODZINĘ
+            </label>
+            {loadingSlots ? (
+              <p className="text-xs text-slate-400">Ładowanie wolnych terminów...</p>
+            ) : availableSlots.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {availableSlots.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setSelectedTime(slot)}
+                    className={`p-2 rounded-lg text-xs font-semibold transition ${
+                      selectedTime === slot
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">
+                {selectedDate ? 'Brak wolnych godzin w tym dniu.' : 'Wybierz najpierw dzień.'}
+              </p>
+            )}
+          </div>
+
+          {/* 4. TWOJE DANE */}
           <div className="space-y-3">
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">4. TWOJE DANE</label>
-            <input type="text" placeholder="Imię i Nazwisko" onChange={(e) => setName(e.target.value)} className="w-full bg-slate-800 border p-3 rounded-lg" />
-            <input type="email" placeholder="Adres E-mail" onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-800 border p-3 rounded-lg" />
-            <input type="tel" placeholder="Numer Telefonu" onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-800 border p-3 rounded-lg" />
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+              4. TWOJE DANE
+            </label>
+            <input
+              type="text"
+              placeholder="Imię i Nazwisko"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-white"
+            />
+            <input
+              type="email"
+              placeholder="Adres E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-white"
+            />
+            <input
+              type="tel"
+              placeholder="Numer Telefonu"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              className="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-white"
+            />
           </div>
 
-          <button type="submit" className="w-full bg-white text-black font-bold p-3 rounded-lg">Potwierdź Rezerwację</button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-white text-black font-bold p-3 rounded-lg hover:bg-slate-200 transition disabled:opacity-50"
+          >
+            {submitting ? 'Rezerwowanie...' : 'Potwierdź Rezerwację'}
+          </button>
         </form>
       </div>
     </div>
