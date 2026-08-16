@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const finalEmail = client_email || email;
     const finalPhone = client_phone || phone;
 
-    // 1. Ustalenie start_time
+    // 1. Wyznaczenie czasy rozpoczęcia (start_time)
     let startDateObj: Date;
     if (start_time) {
       startDateObj = new Date(start_time);
@@ -51,17 +51,88 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Obliczenie end_time
+    // 3. Wyznaczenie czasy zakończenia (end_time)
     const endDateObj = new Date(startDateObj.getTime() + durationMinutes * 60 * 1000);
 
-    // 4. Zapis do bazy Supabase
+    const requestedStartIso = startDateObj.toISOString();
+    const requestedEndIso = endDateObj.toISOString();
+
+    // 4. WERYFIKACJA KOLIZJI TERMINÓW
+    // Szukamy istniejących wizyt, które nakładają się na żądany przedział: (start < requestedEnd) AND (end > requestedStart)
+    const { data: overlappingAppointments, error: overlapError } = await supabase
+      .from('appointments')
+      .select('id, start_time, end_time')
+      .neq('status', 'cancelled')
+      .lt('start_time', requestedEndIso)
+      .gt('end_time', requestedStartIso);
+
+    if (overlapError) {
+      console.error('Błąd weryfikacji dostępności:', overlapError);
+      return NextResponse.json({ error: 'Błąd sprawdzania dostępności terminu' }, { status: 500 });
+    }
+
+    // Jeśli znaleziono nakładającą się rezerwację
+    if (overlappingAppointments && overlappingAppointments.length > 0) {
+      // Pobieramy wszystkie wizyty z danego dnia, żeby znaleźć najbliższy wolny slot
+      const dayStart = new Date(startDateObj);
+      dayStart.setHours(0, 0, 0, 0);
+
+      const dayEnd = new Date(startDateObj);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const { data: dayAppointments } = await supabase
+        .from('appointments')
+        .select('start_time, end_time')
+        .neq('status', 'cancelled')
+        .gte('start_time', dayStart.toISOString())
+        .lte('end_time', dayEnd.toISOString())
+        .order('start_time', { ascending: true });
+
+      // Propozycja wolnego terminu: szukamy pierwszego wolnego slotu po wybranym czasie
+      let suggestedTime: string | null = null;
+      let candidateStart = new Date(endDateObj); // Zaczynamy szukać od końca zajętego terminu
+
+      // Zakres godzin pracy (np. 08:00 - 18:00)
+      const workEnd = new Date(startDateObj);
+      workEnd.setHours(18, 0, 0, 0);
+
+      while (candidateStart.getTime() + durationMinutes * 60 * 1000 <= workEnd.getTime()) {
+        const candidateEnd = new Date(candidateStart.getTime() + durationMinutes * 60 * 1000);
+
+        const hasConflict = dayAppointments?.some((app) => {
+          const appStart = new Date(app.start_time).getTime();
+          const appEnd = new Date(app.end_time).getTime();
+          return candidateStart.getTime() < appEnd && candidateEnd.getTime() > appStart;
+        });
+
+        if (!hasConflict) {
+          suggestedTime = candidateStart.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+          break;
+        }
+
+        // Przesuwamy co 30 minut w poszukiwaniu luki
+        candidateStart = new Date(candidateStart.getTime() + 30 * 60 * 1000);
+      }
+
+      return NextResponse.json(
+        { 
+          error: 'Wybrany termin jest już zajęty.',
+          suggestedTime: suggestedTime 
+            ? `Najbliższy wolny termin tego dnia to ${suggestedTime}.` 
+            : 'Brak innych wolnych terminów tego dnia. Wybierz inny dzień.'
+        }, 
+        { status: 409 }
+      );
+    }
+
+    // 5. Zapis w bazie (jeśli brak kolizji)
     const { data, error } = await supabase
       .from('appointments')
       .insert([
         {
           service_id: Number(service_id),
-          start_time: startDateObj.toISOString(),
-          end_time: endDateObj.toISOString(),
+          start_time: requestedStartIso,
+          end_time: requestedEndIso,
           client_name: finalName,
           client_email: finalEmail,
           client_phone: finalPhone,
@@ -75,13 +146,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // 5. Wysyłka wiadomości e-mail
+    // 6. Powiadomienia e-mail
     if (process.env.RESEND_API_KEY) {
       const formattedDate = date || startDateObj.toLocaleDateString('pl-PL');
       const formattedTime = time || startDateObj.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 
       try {
-        // Mail 1: Powiadomienie dla Ciebie (Admin)
+        // Mail do Admina
         await resend.emails.send({
           from: 'Rezerwacje <onboarding@resend.dev>',
           to: ['wojciechjarosz41@gmail.com'],
@@ -99,7 +170,7 @@ export async function POST(request: Request) {
           `,
         });
 
-        // Mail 2: Potwierdzenie dla Klienta (wysyłane tylko jeśli podał e-mail)
+        // Mail do Klienta
         if (finalEmail) {
           await resend.emails.send({
             from: 'Rezerwacje <onboarding@resend.dev>',
@@ -114,13 +185,12 @@ export async function POST(request: Request) {
                 <li><strong>Data:</strong> ${formattedDate}</li>
                 <li><strong>Godzina:</strong> ${formattedTime}</li>
               </ul>
-              <p>W razie pytań prosimy o kontakt pod numerem telefonu podanym na stronie.</p>
               <p>Do zobaczenia!</p>
             `,
           });
         }
       } catch (emailErr) {
-        console.error('Błąd wysyłki powiadomień e-mail:', emailErr);
+        console.error('Błąd wysyłki e-maila:', emailErr);
       }
     }
 
