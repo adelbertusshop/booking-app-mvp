@@ -4,8 +4,16 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { client_name, client_email, client_phone, start_time, service_id } = body;
+    const { 
+      client_name, 
+      client_email, 
+      client_phone, 
+      start_time, 
+      service_id, 
+      provider_id = 1 // Domyślna wartość, jeśli nie przesyłasz jej z frontendu
+    } = body;
 
+    // Walidacja wszystkich pól
     if (!client_name || !client_email || !client_phone || !start_time || !service_id) {
       return NextResponse.json(
         { error: 'Uzupełnij wszystkie wymagane pola!' },
@@ -13,6 +21,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Zapis do Supabase
     const { data, error } = await supabase
       .from('appointments')
       .insert([
@@ -22,6 +31,7 @@ export async function POST(request: Request) {
           client_phone,
           start_time,
           service_id: Number(service_id),
+          provider_id: Number(provider_id),
         },
       ])
       .select();
@@ -31,9 +41,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data }, { status: 200 });
+    return NextResponse.json({ success: true, data }, { status: 201 });
   } catch (err: any) {
     console.error('Błąd serwera:', err);
-    return NextResponse.json({ error: err.message || 'Wystąpił błąd serwera' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Wystąpił błąd serwera' },
+      { status: 500 }
+    );
   }
 }
