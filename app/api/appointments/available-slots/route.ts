@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const dateStr = searchParams.get('date'); // Oczekiwany format: YYYY-MM-DD
+  const dateStr = searchParams.get('date'); // Format YYYY-MM-DD
   const serviceId = searchParams.get('serviceId');
 
   if (!dateStr) {
@@ -13,23 +13,23 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Bezpieczne parsowanie daty (UTC) unikające przesunięć stref czasowych
+    // 1. Wyliczenie dnia tygodnia bez błędów wynikających ze stref czasowych
     const [year, month, day] = dateStr.split('-').map(Number);
     const dateObj = new Date(Date.UTC(year, month - 1, day));
     const dayOfWeek = dateObj.getUTCDay(); // 0 = Niedziela, 1 = Poniedziałek, ..., 6 = Sobota
 
-    // 2. Pobranie godzin pracy z provider_availability dla wybranego dnia
+    // 2. Pobranie godzin pracy z provider_availability dla tego dnia tygodnia
     const { data: availability, error: availError } = await supabase
       .from('provider_availability')
       .select('*')
       .eq('day_of_week', dayOfWeek);
 
     if (availError || !availability || availability.length === 0) {
-      return NextResponse.json([]); // Brak godzin pracy w ten dzień tygodnia
+      return NextResponse.json([]); // Brak zdefiniowanych godzin na ten dzień
     }
 
-    // 3. Pobranie czasu trwania usługi (w minutach)
-    let durationMinutes = 30;
+    // 3. Pobranie długości usługi z tabeli services
+    let durationMinutes = 30; // Domyślnie 30 min
     if (serviceId) {
       const { data: service } = await supabase
         .from('services')
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Pobranie już zarezerwowanych terminów na ten dzień
+    // 4. Pobranie rezerwacji już zrobionych na ten dzień
     const { data: appointments } = await supabase
       .from('appointments')
       .select('start_time')
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     });
 
-    // 5. Generowanie wolnych slotów co czas trwania usługi
+    // 5. Generowanie wolnych slotów od start_time do end_time z krokiem durationMinutes
     const slots: string[] = [];
 
     for (const rule of availability) {
