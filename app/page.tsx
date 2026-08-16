@@ -91,17 +91,24 @@ useEffect(() => {
       });
 
       if (res.ok) {
-        setMessage('Rezerwacja została pomyślnie złożona!');
-      } else {
-        const errorData = await res.json();
-        setMessage(`Błąd rezerwacji: ${errorData.error || 'Spróbuj ponownie.'}`);
-      }
-    } catch (err) {
-      setMessage('Błąd połączenia z serwerem.');
-    } finally {
-      setSubmitting(false);
+      setMessage('Rezerwacja została pomyślnie złożona!');
+    } else {
+      const data = await res.json();
+      
+      // Doklejamy propozycję wolnego terminu do błędu
+      const fullError = data.suggestedTime 
+        ? `${data.error} ${data.suggestedTime}`
+        : (data.error || 'Wystąpił błąd podczas rezerwacji.');
+
+      setMessage(fullError);
     }
-  };
+  } catch (err) {
+    console.error('Błąd połączenia:', err);
+    setMessage('Błąd połączenia z serwerem.');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
