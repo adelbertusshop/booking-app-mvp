@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nie przekazano daty i godziny' }, { status: 400 });
     }
 
-    // 2. Pobranie nazwy usługi i czasu trwania
+    // 2. Pobranie szczegółów usługi
     let serviceName = 'Wizyta';
     let durationMinutes = 60;
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     // 3. Obliczenie end_time
     const endDateObj = new Date(startDateObj.getTime() + durationMinutes * 60 * 1000);
 
-    // 4. Zapis w bazie Supabase
+    // 4. Zapis do bazy Supabase
     const { data, error } = await supabase
       .from('appointments')
       .insert([
@@ -75,9 +75,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // 5. WYSYŁKA POWIADOMIENIA E-MAIL NA TWÓJ ADRES
+    // 5. Wysyłka wiadomości e-mail
     if (process.env.RESEND_API_KEY) {
+      const formattedDate = date || startDateObj.toLocaleDateString('pl-PL');
+      const formattedTime = time || startDateObj.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
       try {
+        // Mail 1: Powiadomienie dla Ciebie (Admin)
         await resend.emails.send({
           from: 'Rezerwacje <onboarding@resend.dev>',
           to: ['wojciechjarosz41@gmail.com'],
@@ -86,16 +90,37 @@ export async function POST(request: Request) {
           html: `
             <h2>Nowa rezerwacja w systemie!</h2>
             <p><strong>Klient:</strong> ${finalName}</p>
-            <p><strong>E-mail klienta:</strong> ${finalEmail}</p>
+            <p><strong>E-mail:</strong> ${finalEmail}</p>
             <p><strong>Telefon:</strong> ${finalPhone}</p>
             <hr />
             <p><strong>Usługa:</strong> ${serviceName}</p>
-            <p><strong>Data:</strong> ${date || startDateObj.toLocaleDateString('pl-PL')}</p>
-            <p><strong>Godzina:</strong> ${time || startDateObj.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p><strong>Data:</strong> ${formattedDate}</p>
+            <p><strong>Godzina:</strong> ${formattedTime}</p>
           `,
         });
+
+        // Mail 2: Potwierdzenie dla Klienta (wysyłane tylko jeśli podał e-mail)
+        if (finalEmail) {
+          await resend.emails.send({
+            from: 'Rezerwacje <onboarding@resend.dev>',
+            to: [finalEmail],
+            subject: `Potwierdzenie rezerwacji - ${serviceName}`,
+            html: `
+              <h2>Dziękujemy za rezerwację!</h2>
+              <p>Cześć <strong>${finalName}</strong>,</p>
+              <p>Twoja wizyta została pomyślnie zarezerwowana. Oto szczegóły:</p>
+              <ul>
+                <li><strong>Usługa:</strong> ${serviceName}</li>
+                <li><strong>Data:</strong> ${formattedDate}</li>
+                <li><strong>Godzina:</strong> ${formattedTime}</li>
+              </ul>
+              <p>W razie pytań prosimy o kontakt pod numerem telefonu podanym na stronie.</p>
+              <p>Do zobaczenia!</p>
+            `,
+          });
+        }
       } catch (emailErr) {
-        console.error('Błąd wysyłki e-maila:', emailErr);
+        console.error('Błąd wysyłki powiadomień e-mail:', emailErr);
       }
     }
 
