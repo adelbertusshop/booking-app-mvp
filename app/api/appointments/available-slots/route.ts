@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const dateStr = searchParams.get('date');
+  const dateStr = searchParams.get('date'); // Oczekiwany format: YYYY-MM-DD
   const serviceId = searchParams.get('serviceId');
 
   if (!dateStr) {
@@ -13,11 +13,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Obliczenie dnia tygodnia dla podanej daty (0 = Niedziela, 1 = Poniedziałek, ..., 3 = Środa)
-    const dateObj = new Date(dateStr);
-    const dayOfWeek = dateObj.getDay();
+    // 1. Bezpieczne parsowanie daty (UTC) unikające przesunięć stref czasowych
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(year, month - 1, day));
+    const dayOfWeek = dateObj.getUTCDay(); // 0 = Niedziela, 1 = Poniedziałek, ..., 6 = Sobota
 
-    // 2. Pobranie godzin pracy z provider_availability dla tego dnia tygodnia
+    // 2. Pobranie godzin pracy z provider_availability dla wybranego dnia
     const { data: availability, error: availError } = await supabase
       .from('provider_availability')
       .select('*')
@@ -27,21 +28,21 @@ export async function GET(request: Request) {
       return NextResponse.json([]); // Brak godzin pracy w ten dzień tygodnia
     }
 
-    // 3. Pobranie czasu trwania usługi (w minutach) z tabeli services
-    let durationMinutes = 30; // Domyślny czas
+    // 3. Pobranie czasu trwania usługi (w minutach)
+    let durationMinutes = 30;
     if (serviceId) {
       const { data: service } = await supabase
         .from('services')
         .select('duration_minutes')
         .eq('id', Number(serviceId))
-        .single();
+        .maybeSingle();
 
       if (service?.duration_minutes) {
         durationMinutes = service.duration_minutes;
       }
     }
 
-    // 4. Pobranie już istniejących rezerwacji dla tej daty
+    // 4. Pobranie już zarezerwowanych terminów na ten dzień
     const { data: appointments } = await supabase
       .from('appointments')
       .select('start_time')
@@ -53,29 +54,26 @@ export async function GET(request: Request) {
       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     });
 
-    // 5. Generowanie dostępnych slotów (od start_time do end_time)
+    // 5. Generowanie wolnych slotów co czas trwania usługi
     const slots: string[] = [];
 
     for (const rule of availability) {
       const [startH, startM] = rule.start_time.split(':').map(Number);
       const [endH, endM] = rule.end_time.split(':').map(Number);
 
-      let current = new Date(dateObj);
-      current.setHours(startH, startM, 0, 0);
+      let currentMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
 
-      const end = new Date(dateObj);
-      end.setHours(endH, endM, 0, 0);
+      while (currentMinutes + durationMinutes <= endMinutes) {
+        const hours = Math.floor(currentMinutes / 60);
+        const mins = currentMinutes % 60;
+        const timeString = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 
-      while (current < end) {
-        const timeString = `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
-
-        // Jeśli godzina nie jest zajęta, dodaj do listy dostępnych
         if (!bookedTimes.includes(timeString)) {
           slots.push(timeString);
         }
 
-        // Przesuń czas o długość wybranej usługi
-        current = new Date(current.getTime() + durationMinutes * 60000);
+        currentMinutes += durationMinutes;
       }
     }
 
