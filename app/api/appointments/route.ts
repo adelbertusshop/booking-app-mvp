@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +26,6 @@ export async function POST(request: Request) {
 
     // 1. Ustalenie start_time
     let startDateObj: Date;
-
     if (start_time) {
       startDateObj = new Date(start_time);
     } else if (date && time) {
@@ -32,21 +34,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nie przekazano daty i godziny' }, { status: 400 });
     }
 
-    // 2. Pobranie czasu trwania usługi dla wyliczenia end_time
-    let durationMinutes = 90; // domyślnie 90 min
+    // 2. Pobranie nazwy usługi i czasu trwania
+    let serviceName = 'Wizyta';
+    let durationMinutes = 60;
+
     if (service_id) {
       const { data: service } = await supabase
         .from('services')
-        .select('duration_minutes')
+        .select('name, duration_minutes')
         .eq('id', Number(service_id))
         .maybeSingle();
 
-      if (service?.duration_minutes) {
-        durationMinutes = service.duration_minutes;
+      if (service) {
+        serviceName = service.name || serviceName;
+        durationMinutes = service.duration_minutes || durationMinutes;
       }
     }
 
-    // 3. Obliczenie end_time (start_time + durationMinutes)
+    // 3. Obliczenie end_time
     const endDateObj = new Date(startDateObj.getTime() + durationMinutes * 60 * 1000);
 
     // 4. Zapis w bazie Supabase
@@ -68,6 +73,30 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Błąd Supabase:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // 5. WYSYŁKA POWIADOMIENIA E-MAIL NA TWÓJ ADRES
+    if (process.env.RESEND_API_KEY) {
+      try {
+        await resend.emails.send({
+          from: 'Rezerwacje <onboarding@resend.dev>',
+          to: ['wojciechjarosz41@gmail.com'],
+          replyTo: finalEmail,
+          subject: `Nowa rezerwacja: ${serviceName} - ${finalName}`,
+          html: `
+            <h2>Nowa rezerwacja w systemie!</h2>
+            <p><strong>Klient:</strong> ${finalName}</p>
+            <p><strong>E-mail klienta:</strong> ${finalEmail}</p>
+            <p><strong>Telefon:</strong> ${finalPhone}</p>
+            <hr />
+            <p><strong>Usługa:</strong> ${serviceName}</p>
+            <p><strong>Data:</strong> ${date || startDateObj.toLocaleDateString('pl-PL')}</p>
+            <p><strong>Godzina:</strong> ${time || startDateObj.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</p>
+          `,
+        });
+      } catch (emailErr) {
+        console.error('Błąd wysyłki e-maila:', emailErr);
+      }
     }
 
     return NextResponse.json({ success: true, appointment: data });
