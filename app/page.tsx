@@ -21,12 +21,18 @@ export default function BookingPage() {
       try {
         const res = await fetch('/api/appointments/services');
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+
+        console.log('Status odpowiedzi services:', res.status);
+        console.log('Otrzymane usługi:', data);
+
+        if (res.ok && Array.isArray(data) && data.length > 0) {
           setServices(data);
           setServiceId(data[0].id);
+        } else if (data.error) {
+          console.error('Błąd z API usług:', data.error);
         }
       } catch (err) {
-        console.error('Błąd pobierania usług:', err);
+        console.error('Błąd sieci/pobierania usług:', err);
       } finally {
         setLoadingServices(false);
       }
@@ -43,6 +49,7 @@ export default function BookingPage() {
         const data = await res.json();
         setAvailableSlots(data.availableSlots || []);
       } catch (err) {
+        console.error('Błąd pobierania slotów:', err);
         setAvailableSlots([]);
       } finally {
         setLoadingSlots(false);
@@ -70,12 +77,14 @@ export default function BookingPage() {
           service_id: serviceId,
         }),
       });
+
       if (res.ok) {
         setMessage('Rezerwacja została pomyślnie złożona!');
       } else {
-        setMessage('Błąd podczas składania rezerwacji.');
+        const errorData = await res.json();
+        setMessage(`Błąd rezerwacji: ${errorData.error || 'Spróbuj ponownie.'}`);
       }
-    } catch {
+    } catch (err) {
       setMessage('Błąd połączenia z serwerem.');
     } finally {
       setSubmitting(false);
