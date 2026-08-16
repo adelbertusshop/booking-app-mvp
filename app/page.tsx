@@ -40,23 +40,35 @@ export default function BookingPage() {
     fetchServices();
   }, []);
 
-  useEffect(() => {
-    if (!selectedDate) return;
-    const fetchSlots = async () => {
-      setLoadingSlots(true);
-      try {
-        const res = await fetch(`/api/appointments/available-slots?date=${selectedDate}`);
-        const data = await res.json();
-        setAvailableSlots(data.availableSlots || []);
-      } catch (err) {
-        console.error('Błąd pobierania slotów:', err);
+useEffect(() => {
+  if (!selectedDate) return;
+
+  const fetchSlots = async () => {
+    setLoadingSlots(true);
+    try {
+      const res = await fetch(
+        `/api/appointments/available-slots?date=${selectedDate}&serviceId=${serviceId}`
+      );
+      const data = await res.json();
+
+      // Obsługa zarówno czystej tablicy [], jak i ewentualnego obiektu
+      if (Array.isArray(data)) {
+        setAvailableSlots(data);
+      } else if (data.availableSlots) {
+        setAvailableSlots(data.availableSlots);
+      } else {
         setAvailableSlots([]);
-      } finally {
-        setLoadingSlots(false);
       }
-    };
-    fetchSlots();
-  }, [selectedDate]);
+    } catch (err) {
+      console.error('Błąd pobierania slotów:', err);
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  fetchSlots();
+}, [selectedDate, serviceId]); // Dodano serviceId do tablicy zależności
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
