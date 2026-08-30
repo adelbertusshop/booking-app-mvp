@@ -1,88 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getAvailableSlots } from '@/lib/smart-scheduling';
-import { sendBookingConfirmation } from '@/lib/email';
+import { Resend } from 'resend';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface EmailParams {
+  to: string;
+  clientName: string;
+  serviceName: string;
+  date: string;
+  startTime: string;
+}
 
-export async function POST(request: NextRequest) {
+export async function sendBookingConfirmation({
+  to,
+  clientName,
+  serviceName,
+  date,
+  startTime,
+}: EmailParams) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.error('[EMAIL ERROR] Brak RESEND_API_KEY w pliku .env.local!');
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  console.log(`[EMAIL] Rozpoczynam wysyłkę do: ${to}`);
+
   try {
-    const body = await request.json();
-    const { providerId, serviceId, customerData, startTime, date } = body;
-
-    if (!providerId || !serviceId || !startTime || !date || !customerData?.email) {
-      return NextResponse.json(
-        { error: 'Brak wymaganych danych do rezerwacji.' },
-        { status: 400 }
-      );
-    }
-
-    // Walidacja dostępności slotu przed zapisem
-    const availableSlots = await getAvailableSlots({ providerId, serviceId, date });
-    const isSlotAvailable = availableSlots.some(
-      (slot) => slot.startTime === startTime && slot.available === true
-    );
-
-    if (!isSlotAvailable) {
-      return NextResponse.json(
-        { error: 'Ten termin jest już zajęty.' },
-        { status: 409 }
-      );
-    }
-
-    // Pobranie danych usługi
-    const { data: service } = await supabase
-      .from('services')
-      .select('name, duration_minutes')
-      .eq('id', serviceId)
-      .single();
-
-    if (!service) {
-      return NextResponse.json({ error: 'Usługa nie istnieje.' }, { status: 404 });
-    }
-
-    const start = new Date(startTime);
-    const end = new Date(start.getTime() + service.duration_minutes * 60000);
-
-    // Zapis rezerwacji w Supabase
-    const { data: appointment, error: insertError } = await supabase
-      .from('appointments')
-      .insert([
-        {
-          provider_id: providerId,
-          service_id: serviceId,
-          client_name: `${customerData.firstName} ${customerData.lastName}`,
-          client_email: customerData.email,
-          client_phone: customerData.phone,
-          start_time: start.toISOString(),
-          end_time: end.toISOString(),
-          status: 'confirmed',
-        },
-      ])
-      .select()
-      .single();
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    // Wysyłka e-maila z potwierdzeniem (nie blokuje odpowiedzi w przypadku błędu poczty)
-    await sendBookingConfirmation({
-      to: customerData.email,
-      clientName: customerData.firstName,
-      serviceName: service.name,
-      date: date,
-      startTime: startTime,
+    const { data, error } = await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: [to],
+      subject: `Powiadomienie: ${serviceName}`,
+      html: `
+        <h2>Witaj ${clientName},</h2>
+        <p>Szczegóły wizyty: <strong>${serviceName}</strong></p>
+        <p>Data: <strong>${date} ${startTime}</strong></p>
+      `,
     });
 
-    return NextResponse.json({ success: true, appointment }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Błąd podczas tworzenia rezerwacji.' },
-      { status: 500 }
-    );
+    if (error) {
+      console.error('[EMAIL ERROR] Resend odrzucił e-mail:', error);
+    } else {
+      console.log('[EMAIL SUCCESS] Mail wysłany! ID:', data?.id);
+    }
+  } catch (err) {
+    console.error('[EMAIL CRASH] Wyjątek podczas wysyłki:', err);
   }
 }

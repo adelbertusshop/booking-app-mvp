@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,8 +20,8 @@ export default function AdminLoginPage() {
       });
 
       if (res.ok) {
-        router.push('/admin');
-        router.refresh();
+        // Twarde przekierowanie wymusza odświeżenie ciasteczek i sesji Next.js
+        window.location.href = '/admin';
       } else {
         const data = await res.json();
         setError(data.error || 'Błędne hasło');
