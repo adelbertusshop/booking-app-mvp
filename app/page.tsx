@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 export default function Home() {
   const [formData, setFormData] = useState({
-    serviceName: 'Konsultacja podstawowa',
+    serviceName: 'Barber',
     date: '',
-    time: '09:00',
+    time: '10:00',
     clientName: '',
     email: '',
     phone: '',
@@ -32,9 +32,9 @@ export default function Home() {
       if (res.ok) {
         setMessage({ type: 'success', text: 'Rezerwacja została pomyślnie złożona!' });
         setFormData({
-          serviceName: 'Konsultacja podstawowa',
+          serviceName: 'Barber',
           date: '',
-          time: '09:00',
+          time: '10:00',
           clientName: '',
           email: '',
           phone: '',
@@ -67,7 +67,10 @@ export default function Home() {
               onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
               className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
             >
-              <option value="Konsultacja podstawowa">Konsultacja podstawowa</option>
+              <option value="Barber">Barber</option>
+              <option value="Fryzjer / Fryzjerka">Fryzjer / Fryzjerka</option>
+              <option value="Stylistka rzęs">Stylistka rzęs</option>
+              <option value="Paznokcie">Paznokcie</option>
             </select>
           </div>
 
@@ -95,6 +98,7 @@ export default function Home() {
               onChange={(e) => setFormData({ ...formData, time: e.target.value })}
               className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
             >
+              <option value="08:00">08:00</option>
               <option value="09:00">09:00</option>
               <option value="10:00">10:00</option>
               <option value="11:00">11:00</option>
@@ -102,6 +106,11 @@ export default function Home() {
               <option value="13:00">13:00</option>
               <option value="14:00">14:00</option>
               <option value="15:00">15:00</option>
+              <option value="16:00">16:00</option>
+              <option value="17:00">17:00</option>
+              <option value="18:00">18:00</option>
+              <option value="19:00">19:00</option>
+              <option value="20:00">20:00</option>
             </select>
           </div>
 
