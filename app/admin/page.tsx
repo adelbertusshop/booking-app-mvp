@@ -40,47 +40,73 @@ export default function AdminLoginPage() {
     window.location.href = '/admin/login';
   };
 
-  const handleCancelBooking = async (id: string, email: string) => {
+  // 1. Dedykowane usuwanie wpisu bez wysyłania e-maila
+  const handleDeleteBooking = async (id: string) => {
+    if (!confirm('Czy na pewno chcesz bezpowrotnie usunąć tę rezerwację z bazy?')) return;
+
     setActionLoading(id);
 
     const { error } = await supabase
       .from('appointments')
-      .update({ status: 'cancelled' })
+      .delete()
       .eq('id', id);
 
-    if (!error) {
-      try {
-        await fetch('/api/cancel-booking', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: id, email }),
-        });
-      } catch (err) {
-        console.error('Błąd wysyłki maila:', err);
-      }
+    if (error) {
+      console.error('Błąd podczas usuwania z Supabase:', error);
+      alert(`Błąd usuwania: ${error.message}`);
+    } else {
+      setBookings((prev) => prev.filter((item) => item.id !== id));
+    }
+
+    setActionLoading(null);
+  };
+
+  // 2. Anulowanie wpisu z powiadomieniem mailowym
+  const handleCancelBooking = async (id: string, email: string) => {
+    setActionLoading(id);
+
+    try {
+      await fetch('/api/cancel-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: id, email }),
+      });
+    } catch (err) {
+      console.error('Błąd wysyłki maila:', err);
+    }
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Błąd podczas usuwania z Supabase:', error);
+    } else {
       await fetchBookings();
     }
+
     setActionLoading(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
+    <div className="min-h-screen bg-black text-amber-100 p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-teal-400">Panel Zarządzania Rezerwacjami</h1>
-            <p className="text-slate-400 text-sm">Prawdziwe dane z bazy Supabase</p>
+            <h1 className="text-3xl font-bold text-amber-400 tracking-wide">Panel Zarządzania Rezerwacjami</h1>
+            <p className="text-amber-200/60 text-sm">Prawdziwe dane z bazy Supabase</p>
           </div>
           <div className="flex gap-3">
             <button 
               onClick={fetchBookings}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm rounded-lg border border-slate-700 transition-colors"
+              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-amber-400 text-sm rounded-lg border border-amber-500/30 transition-colors font-medium"
             >
               Odśwież dane
             </button>
             <button 
               onClick={handleLogout}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-lg text-white transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-sm rounded-lg transition-all shadow-md"
             >
               Wyloguj się
             </button>
@@ -88,29 +114,29 @@ export default function AdminLoginPage() {
         </div>
 
         {errorMessage && (
-          <div className="p-4 bg-rose-900/50 border border-rose-500 rounded-lg text-rose-200 text-sm font-mono">
+          <div className="p-4 bg-red-950/50 border border-red-500 rounded-lg text-red-200 text-sm font-mono">
             <strong>BŁĄD SUPABASE:</strong> {errorMessage}
           </div>
         )}
-        
+
         {loading ? (
-          <p className="text-slate-400">Ładowanie bazy Supabase...</p>
+          <p className="text-amber-400/60">Ładowanie bazy Supabase...</p>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+          <div className="bg-zinc-950 border border-amber-500/30 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(217,119,6,0.08)]">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-800 text-slate-300 text-xs uppercase border-b border-slate-700">
+                <tr className="bg-zinc-900 text-amber-400 text-xs uppercase border-b border-amber-500/20 font-semibold">
                   <th className="p-4">Klient</th>
                   <th className="p-4">Usługa</th>
                   <th className="p-4">Termin</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4 text-right">Akcja</th>
+                  <th className="p-4 text-right">Akcje</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 text-sm">
+              <tbody className="divide-y divide-amber-500/10 text-sm">
                 {bookings.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-4 text-center text-slate-500">
+                    <td colSpan={5} className="p-6 text-center text-zinc-500 font-medium">
                       Brak rezerwacji w bazie Supabase.
                     </td>
                   </tr>
@@ -124,33 +150,40 @@ export default function AdminLoginPage() {
                     const isCancelled = item.status === 'cancelled' || item.status === 'Anulowana';
 
                     return (
-                      <tr key={item.id} className="hover:bg-slate-800/50">
-                        <td className="p-4 font-semibold">
+                      <tr key={item.id} className="hover:bg-zinc-900/60 transition-colors">
+                        <td className="p-4 font-medium text-amber-100">
                           {clientName}
                           {clientEmail && <br/>}
-                          <span className="text-xs text-slate-400 font-normal">{clientEmail}</span>
+                          <span className="text-xs text-amber-200/50 font-normal">{clientEmail}</span>
                         </td>
-                        <td className="p-4">{item.service || item.service_name || 'Konsultacja'}</td>
-                        <td className="p-4">{dateFormatted}</td>
+                        <td className="p-4 text-amber-200/80">{item.service || item.service_name || 'Konsultacja'}</td>
+                        <td className="p-4 text-amber-200/80">{dateFormatted}</td>
                         <td className="p-4">
-                          <span className={`px-2.5 py-1 text-xs rounded-full border ${
+                          <span className={`px-2.5 py-1 text-xs rounded-full border font-medium ${
                             isCancelled 
-                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' 
-                              : 'bg-teal-500/20 text-teal-300 border-teal-500/30'
+                              ? 'bg-rose-950/40 text-rose-400 border-rose-500/30' 
+                              : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                           }`}>
                             {isCancelled ? 'Anulowana' : (item.status || 'Potwierdzono')}
                           </span>
                         </td>
                         <td className="p-4 text-right">
-                          {!isCancelled && (
+                          <div className="flex justify-end gap-2">
                             <button
                               disabled={actionLoading === item.id}
                               onClick={() => handleCancelBooking(item.id, clientEmail)}
-                              className="px-3 py-1 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded text-xs transition-colors disabled:opacity-50"
+                              className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-xs transition-colors disabled:opacity-50"
                             >
-                              {actionLoading === item.id ? 'Anulowanie...' : 'Odwołaj'}
+                              Odwołaj
                             </button>
-                          )}
+                            <button
+                              disabled={actionLoading === item.id}
+                              onClick={() => handleDeleteBooking(item.id)}
+                              className="px-3 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded text-xs transition-colors disabled:opacity-50"
+                            >
+                              {actionLoading === item.id ? 'Usuwanie...' : 'Usuń'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

@@ -4,13 +4,14 @@ import { useState } from 'react';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError(null);
 
     try {
       const res = await fetch('/api/admin/login', {
@@ -20,13 +21,12 @@ export default function AdminLoginPage() {
       });
 
       if (res.ok) {
-        // Twarde przekierowanie wymusza odświeżenie ciasteczek i sesji Next.js
         window.location.href = '/admin';
       } else {
         const data = await res.json();
-        setError(data.error || 'Błędne hasło');
+        setError(data.error || 'Nieprawidłowe hasło');
       }
-    } catch {
+    } catch (err) {
       setError('Wystąpił błąd połączenia');
     } finally {
       setLoading(false);
@@ -34,36 +34,53 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen text-white bg-slate-950 p-4">
-      <form onSubmit={handleLogin} className="w-full max-w-sm p-6 space-y-4 rounded-xl border bg-slate-900 border-slate-800">
-        <h1 className="text-xl font-bold text-center">Panel Administratora</h1>
-        
-        {error && (
-          <div className="p-3 text-sm text-red-400 rounded bg-red-950/50 border border-red-500/30">
-            {error}
+    <div className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-zinc-950 border border-amber-500/30 rounded-2xl p-8 shadow-[0_0_30px_rgba(217,119,6,0.15)]">
+        <h1 className="text-2xl font-bold text-center text-amber-400 mb-6 tracking-wide">
+          Panel Administratora
+        </h1>
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-amber-200/80 mb-2">
+              Hasło dostępu
+            </label>
+            
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Wpisz hasło..."
+                required
+                className="w-full bg-zinc-900 !bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 placeholder-zinc-500 rounded-lg px-4 py-3 text-sm outline-none transition-all pr-16 focus:ring-1 focus:ring-amber-400"
+              />
+              
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded transition-colors z-10"
+              >
+                {showPassword ? 'Ukryj' : 'Pokaż'}
+              </button>
+            </div>
           </div>
-        )}
 
-        <div>
-          <label className="block mb-1 text-sm text-slate-400">Hasło dostępu</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 text-white rounded border bg-slate-800 border-slate-700 focus:outline-none focus:border-cyan-500"
-            placeholder="Wpisz hasło..."
-            required
-          />
-        </div>
+          {error && (
+            <div className="p-3 bg-red-950/40 border border-red-500/50 rounded-lg text-red-400 text-xs text-center font-medium">
+              {error}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full p-2 font-medium transition-colors rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50"
-        >
-          {loading ? 'Logowanie...' : 'Zaloguj się'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold py-3 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-amber-500/20 active:scale-[0.99] disabled:opacity-50"
+          >
+            {loading ? 'Logowanie...' : 'Zaloguj się'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
