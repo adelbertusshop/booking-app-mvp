@@ -1,0 +1,10 @@
+[33m62f5972[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix admin panel bypass login and query
+[33m0029a35[m Fix admin fetching without created_at column
+[33m4db4c7d[m Restore original admin panel with fixed auth and dynamic service
+[33m1f9ed18[m Move admin link inside form card
+[33ma2cfeee[m Add admin panel link in footer
+[33m7425a61[m Update service list
+[33m87e6a13[m Update UI styles to dark gold theme
+[33mdbd4529[m Dodano wylogowanie z panelu admina
+[33ma318a25[m Add admin login page and API route
+[33m559fb39[m Show suggested time on booking conflict
