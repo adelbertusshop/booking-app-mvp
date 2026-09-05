@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function HomePage() {
   const [service, setService] = useState('Fryzjer / Fryzjerka');
@@ -10,18 +14,69 @@ export default function HomePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logika wysyłania rezerwacji
+    setLoading(true);
+    setMessage(null);
+
+    if (!date || !name || !email || !phone) {
+      setMessage({ type: 'error', text: 'Proszę wypełnić wszystkie pola.' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('appointments').insert([
+        {
+          service_name: service,
+          date: date,
+          time: time,
+          client_name: name,
+          email: email,
+          phone: phone,
+        },
+      ]);
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage({ type: 'success', text: 'Rezerwacja została pomyślnie złożona!' });
+      setName('');
+      setEmail('');
+      setPhone('');
+      setDate('');
+    } catch (err: any) {
+      setMessage({
+        type: 'error',
+        text: err.message || 'Wystąpił błąd podczas zapisywania rezerwacji.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <main className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
       <div className="bg-zinc-950 border border-amber-500/30 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl">
         <h1 className="text-3xl font-extrabold text-amber-400 text-center tracking-wide">
-          Zarezervuj Wizytę
+          Zarezerwuj Wizytę
         </h1>
+
+        {message && (
+          <div
+            className={`p-4 rounded-lg text-sm font-semibold border ${
+              message.type === 'success'
+                ? 'bg-emerald-950/50 border-emerald-500 text-emerald-400'
+                : 'bg-red-950/50 border-red-500 text-red-400'
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -98,19 +153,20 @@ export default function HomePage() {
 
           <button
             type="submit"
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg mt-2"
+            disabled={loading}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg mt-2 disabled:opacity-50"
           >
-            Potwierdź Rezerwację
+            {loading ? 'Zapisywanie...' : 'Potwierdź Rezerwację'}
           </button>
         </form>
 
-        <div className="pt-2 text-center border-t border-amber-500/10">
-          <Link
+        <div className="pt-4 text-center border-t border-amber-500/10">
+          <a
             href="/admin"
             className="text-xs uppercase font-semibold text-amber-200/60 hover:text-amber-400 transition-colors tracking-widest cursor-pointer inline-block py-1"
           >
             PANEL ADMINISTRATORA
-          </Link>
+          </a>
         </div>
       </div>
     </main>
