@@ -8,55 +8,39 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function HomePage() {
-  const [service, setService] = useState('Fryzjer / Fryzjerka');
+  const [service, setService] = useState('Barber');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
 
-    if (!date || !name || !email || !phone) {
-      setMessage({ type: 'error', text: 'Proszę wypełnić wszystkie pola.' });
-      setLoading(false);
-      return;
-    }
+    const { error } = await supabase.from('appointments').insert([
+      {
+        service_name: service,
+        date,
+        time,
+        client_name: name,
+        email,
+        phone,
+      },
+    ]);
 
-    try {
-      const { error } = await supabase.from('appointments').insert([
-        {
-          service_name: service,
-          date: date,
-          time: time,
-          client_name: name,
-          email: email,
-          phone: phone,
-        },
-      ]);
-
-      if (error) {
-        throw error;
-      }
-
-      setMessage({ type: 'success', text: 'Rezerwacja została pomyślnie złożona!' });
+    if (error) {
+      setMessage('Błąd rezerwacji: ' + error.message);
+    } else {
+      setMessage('Rezerwacja wysłana!');
       setName('');
       setEmail('');
       setPhone('');
-      setDate('');
-    } catch (err: any) {
-      setMessage({
-        type: 'error',
-        text: err.message || 'Wystąpił błąd podczas zapisywania rezerwacji.',
-      });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (
@@ -66,17 +50,7 @@ export default function HomePage() {
           Zarezerwuj Wizytę
         </h1>
 
-        {message && (
-          <div
-            className={`p-4 rounded-lg text-sm font-semibold border ${
-              message.type === 'success'
-                ? 'bg-emerald-950/50 border-emerald-500 text-emerald-400'
-                : 'bg-red-950/50 border-red-500 text-red-400'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
+        {message && <p className="text-center text-sm text-amber-300">{message}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -88,10 +62,9 @@ export default function HomePage() {
               onChange={(e) => setService(e.target.value)}
               className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
             >
-              <option value="Fryzjer / Fryzjerka">Fryzjer / Fryzjerka</option>
               <option value="Barber">Barber</option>
+              <option value="Fryzjer / Fryzjerka">Fryzjer / Fryzjerka</option>
               <option value="Strzyżenie Męskie">Strzyżenie Męskie</option>
-              <option value="Broda">Broda</option>
             </select>
           </div>
 
@@ -119,8 +92,6 @@ export default function HomePage() {
               <option value="10:00">10:00</option>
               <option value="11:00">11:00</option>
               <option value="12:00">12:00</option>
-              <option value="13:00">13:00</option>
-              <option value="14:00">14:00</option>
             </select>
           </div>
 
@@ -154,16 +125,17 @@ export default function HomePage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg mt-2 disabled:opacity-50"
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg mt-2"
           >
             {loading ? 'Zapisywanie...' : 'Potwierdź Rezerwację'}
           </button>
         </form>
 
-        <div className="pt-4 text-center border-t border-amber-500/10">
+        {/* TU JEST NAPIS */}
+        <div className="pt-4 text-center border-t border-amber-500/20">
           <a
             href="/admin"
-            className="text-xs uppercase font-semibold text-amber-200/60 hover:text-amber-400 transition-colors tracking-widest cursor-pointer inline-block py-1"
+            className="text-xs uppercase font-bold text-amber-400 hover:underline tracking-widest"
           >
             PANEL ADMINISTRATORA
           </a>
