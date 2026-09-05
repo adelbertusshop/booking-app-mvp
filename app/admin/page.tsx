@@ -1,96 +1,118 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState } from 'react';
+import Link from 'next/link';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export default function HomePage() {
+  const [service, setService] = useState('Fryzjer / Fryzjerka');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('10:00');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
 
-export default function AdminPage() {
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  const fetchBookings = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.from('appointments').select('*');
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
-      setBookings(data || []);
-    }
-    setLoading(false);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Logika wysyłania rezerwacji
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
   return (
-    <div className="min-h-screen bg-black text-amber-100 p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-amber-400">
-            Panel Zarządzania Rezerwacjami
-          </h1>
+    <main className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
+      <div className="bg-zinc-950 border border-amber-500/30 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl">
+        <h1 className="text-3xl font-extrabold text-amber-400 text-center tracking-wide">
+          Zarezervuj Wizytę
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs uppercase font-bold text-amber-400 mb-1">
+              1. Wybierz usługę
+            </label>
+            <select
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            >
+              <option value="Fryzjer / Fryzjerka">Fryzjer / Fryzjerka</option>
+              <option value="Barber">Barber</option>
+              <option value="Strzyżenie Męskie">Strzyżenie Męskie</option>
+              <option value="Broda">Broda</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase font-bold text-amber-400 mb-1">
+              2. Wybierz dzień
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase font-bold text-amber-400 mb-1">
+              3. Wybierz godzinę
+            </label>
+            <select
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            >
+              <option value="10:00">10:00</option>
+              <option value="11:00">11:00</option>
+              <option value="12:00">12:00</option>
+              <option value="13:00">13:00</option>
+              <option value="14:00">14:00</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs uppercase font-bold text-amber-400">
+              4. Twoje dane
+            </label>
+            <input
+              type="text"
+              placeholder="Imię i Nazwisko"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            />
+            <input
+              type="email"
+              placeholder="Adres E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            />
+            <input
+              type="tel"
+              placeholder="Numer Telefonu"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
           <button
-            onClick={fetchBookings}
-            className="px-4 py-2 bg-zinc-900 border border-amber-500/30 rounded text-amber-400 text-sm"
+            type="submit"
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg mt-2"
           >
-            Odśwież
+            Potwierdź Rezerwację
           </button>
+        </form>
+
+        <div className="pt-2 text-center border-t border-amber-500/10">
+          <Link
+            href="/admin"
+            className="text-xs uppercase font-semibold text-amber-200/60 hover:text-amber-400 transition-colors tracking-widest cursor-pointer inline-block py-1"
+          >
+            PANEL ADMINISTRATORA
+          </Link>
         </div>
-
-        {errorMsg && (
-          <div className="p-4 bg-red-950 border border-red-500 text-red-400 rounded">
-            {errorMsg}
-          </div>
-        )}
-
-        {loading ? (
-          <p className="text-amber-400/60">Ładowanie danych...</p>
-        ) : (
-          <div className="bg-zinc-950 border border-amber-500/30 rounded-xl overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-zinc-900 text-amber-400 text-xs uppercase border-b border-amber-500/20">
-                  <th className="p-4">Klient</th>
-                  <th className="p-4">Usługa</th>
-                  <th className="p-4">Termin</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-amber-500/10 text-sm">
-                {bookings.map((item) => {
-                  const client = item.clientName || item.client_name || item.name || item.email || 'Brak danych';
-                  
-                  // Próbujemy odczytać nazwę usługi ze wszystkich możliwych kluczy
-                  const service = 
-                    item.serviceName || 
-                    item.service_name || 
-                    item.service || 
-                    item.service_type || 
-                    item.usluga || 
-                    item.selectedService ||
-                    (typeof item === 'object' ? Object.values(item).find(v => typeof v === 'string' && v !== client && !v.includes('@') && !v.includes('-')) : null) ||
-                    'Nieznana usługa';
-
-                  const date = item.date || item.booking_date || '';
-                  const time = item.time || item.booking_time || '';
-
-                  return (
-                    <tr key={item.id || Math.random()}>
-                      <td className="p-4 font-bold text-amber-300">{String(client)}</td>
-                      <td className="p-4 text-amber-100 font-semibold">{String(service)}</td>
-                      <td className="p-4 text-zinc-300">{String(date)} {String(time)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
-    </div>
+    </main>
   );
 }
