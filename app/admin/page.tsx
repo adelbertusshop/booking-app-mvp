@@ -14,7 +14,6 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
     const loggedIn = sessionStorage.getItem('admin_logged_in');
@@ -26,24 +25,18 @@ export default function AdminPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    setFetchError('');
-    
-    // Pobieramy absolutnie wszystkie rekordy
     const { data, error } = await supabase
       .from('appointments')
       .select('*');
 
-    if (error) {
-      console.error('Błąd Supabase:', error);
-      setFetchError(error.message);
-    } else if (data) {
+    if (!error && data) {
       setAppointments(data);
     }
     setLoading(false);
   };
 
-  const handleDelete = async (id: any) => {
-    if (!confirm('Czy na pewno chcesz usunąć tę rezerwację?')) return;
+  const handleCancel = async (id: any) => {
+    if (!confirm('Czy na pewno chcesz odwołać tę wizytę?')) return;
 
     const { error } = await supabase
       .from('appointments')
@@ -51,7 +44,7 @@ export default function AdminPage() {
       .eq('id', id);
 
     if (error) {
-      alert('Błąd podczas usuwania: ' + error.message);
+      alert('Błąd podczas odwoływania wizyty: ' + error.message);
     } else {
       setAppointments((prev) => prev.filter((item) => item.id !== id));
     }
@@ -72,6 +65,16 @@ export default function AdminPage() {
   const handleLogout = () => {
     sessionStorage.removeItem('admin_logged_in');
     setIsAuthenticated(false);
+  };
+
+  // Pomocnicza funkcja wyciągająca wartość pola niezależnie od nazwy kolumny w Supabase
+  const getValue = (item: any, keys: string[]) => {
+    for (const key of keys) {
+      if (item[key] !== undefined && item[key] !== null && item[key] !== '') {
+        return item[key];
+      }
+    }
+    return '-';
   };
 
   if (!isAuthenticated) {
@@ -132,54 +135,53 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {fetchError && (
-          <div className="bg-red-950/80 border border-red-500 p-4 rounded-xl text-red-200 text-sm">
-            <strong>Błąd pobierania danych z bazy:</strong> {fetchError}
-          </div>
-        )}
-
         {loading ? (
-          <p className="text-amber-200">Ładowanie rezerwacji z Supabase...</p>
+          <p className="text-amber-200">Ładowanie rezerwacji...</p>
         ) : (
           <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl overflow-x-auto">
             {appointments.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-zinc-400 text-sm">Brak rezerwacji w bazie lub dostęp jest zablokowany polityką RLS w Supabase.</p>
-              </div>
+              <p className="text-zinc-500 text-sm">Brak rezerwacji w bazie.</p>
             ) : (
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-amber-500/30 text-amber-400 uppercase text-xs">
-                    <th className="p-3">Usługa / Tytuł</th>
-                    <th className="p-3">Data / Czas</th>
                     <th className="p-3">Klient</th>
+                    <th className="p-3">Usługa</th>
+                    <th className="p-3">Data</th>
+                    <th className="p-3">Godzina</th>
                     <th className="p-3">Email</th>
                     <th className="p-3">Telefon</th>
                     <th className="p-3 text-right">Akcje</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {appointments.map((item, idx) => (
-                    <tr key={item.id || idx} className="hover:bg-zinc-900/50">
-                      <td className="p-3 font-semibold text-amber-300">
-                        {item.service_name || item.service || item.title || item.details || '-'}
-                      </td>
-                      <td className="p-3 text-amber-100">
-                        {item.date || item.created_at || '-'} {item.time ? `o ${item.time}` : ''}
-                      </td>
-                      <td className="p-3 font-medium">{item.client_name || item.name || item.client || '-'}</td>
-                      <td className="p-3 text-zinc-400">{item.email || '-'}</td>
-                      <td className="p-3 text-zinc-400">{item.phone || item.telephone || '-'}</td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1 rounded text-xs transition-colors"
-                        >
-                          Usuń
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {appointments.map((item, idx) => {
+                    const client = getValue(item, ['client_name', 'name', 'client', 'full_name', 'user_name']);
+                    const service = getValue(item, ['service_name', 'service', 'title', 'service_type', 'details']);
+                    const date = getValue(item, ['date', 'appointment_date', 'booking_date', 'created_at']);
+                    const time = getValue(item, ['time', 'appointment_time', 'booking_time', 'slot']);
+                    const email = getValue(item, ['email', 'client_email', 'user_email']);
+                    const phone = getValue(item, ['phone', 'telephone', 'client_phone', 'phone_number']);
+
+                    return (
+                      <tr key={item.id || idx} className="hover:bg-zinc-900/50">
+                        <td className="p-3 font-semibold text-amber-300">{client}</td>
+                        <td className="p-3">{service}</td>
+                        <td className="p-3 text-amber-100">{typeof date === 'string' && date.includes('T') ? date.split('T')[0] : date}</td>
+                        <td className="p-3">{time}</td>
+                        <td className="p-3 text-zinc-400">{email}</td>
+                        <td className="p-3 text-zinc-400">{phone}</td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleCancel(item.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow"
+                          >
+                            Odwołaj wizytę
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
