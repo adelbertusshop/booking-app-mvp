@@ -25,9 +25,7 @@ export default function AdminPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('*');
+    const { data, error } = await supabase.from('appointments').select('*');
 
     if (!error && data) {
       setAppointments(data);
@@ -38,10 +36,7 @@ export default function AdminPage() {
   const handleCancel = async (id: any) => {
     if (!confirm('Czy na pewno chcesz odwołać tę wizytę?')) return;
 
-    const { error } = await supabase
-      .from('appointments')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
 
     if (error) {
       alert('Błąd podczas odwoływania wizyty: ' + error.message);
@@ -65,16 +60,6 @@ export default function AdminPage() {
   const handleLogout = () => {
     sessionStorage.removeItem('admin_logged_in');
     setIsAuthenticated(false);
-  };
-
-  // Pomocnicza funkcja wyciągająca wartość pola niezależnie od nazwy kolumny w Supabase
-  const getValue = (item: any, keys: string[]) => {
-    for (const key of keys) {
-      if (item[key] !== undefined && item[key] !== null && item[key] !== '') {
-        return item[key];
-      }
-    }
-    return '-';
   };
 
   if (!isAuthenticated) {
@@ -124,7 +109,7 @@ export default function AdminPage() {
               onClick={fetchAppointments}
               className="bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 px-4 py-2 rounded-lg text-xs font-bold transition-all"
             >
-              Odśwież dane
+              Odśwież
             </button>
             <button
               onClick={handleLogout}
@@ -138,52 +123,28 @@ export default function AdminPage() {
         {loading ? (
           <p className="text-amber-200">Ładowanie rezerwacji...</p>
         ) : (
-          <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl overflow-x-auto">
+          <div className="space-y-4">
             {appointments.length === 0 ? (
               <p className="text-zinc-500 text-sm">Brak rezerwacji w bazie.</p>
             ) : (
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-amber-500/30 text-amber-400 uppercase text-xs">
-                    <th className="p-3">Klient</th>
-                    <th className="p-3">Usługa</th>
-                    <th className="p-3">Data</th>
-                    <th className="p-3">Godzina</th>
-                    <th className="p-3">Email</th>
-                    <th className="p-3">Telefon</th>
-                    <th className="p-3 text-right">Akcje</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {appointments.map((item, idx) => {
-                    const client = getValue(item, ['client_name', 'name', 'client', 'full_name', 'user_name']);
-                    const service = getValue(item, ['service_name', 'service', 'title', 'service_type', 'details']);
-                    const date = getValue(item, ['date', 'appointment_date', 'booking_date', 'created_at']);
-                    const time = getValue(item, ['time', 'appointment_time', 'booking_time', 'slot']);
-                    const email = getValue(item, ['email', 'client_email', 'user_email']);
-                    const phone = getValue(item, ['phone', 'telephone', 'client_phone', 'phone_number']);
-
-                    return (
-                      <tr key={item.id || idx} className="hover:bg-zinc-900/50">
-                        <td className="p-3 font-semibold text-amber-300">{client}</td>
-                        <td className="p-3">{service}</td>
-                        <td className="p-3 text-amber-100">{typeof date === 'string' && date.includes('T') ? date.split('T')[0] : date}</td>
-                        <td className="p-3">{time}</td>
-                        <td className="p-3 text-zinc-400">{email}</td>
-                        <td className="p-3 text-zinc-400">{phone}</td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => handleCancel(item.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow"
-                          >
-                            Odwołaj wizytę
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              appointments.map((item, idx) => (
+                <div key={item.id || idx} className="bg-zinc-950 border border-amber-500/30 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="space-y-1 text-sm font-mono overflow-x-auto w-full">
+                    {Object.entries(item).map(([key, val]) => (
+                      <div key={key} className="flex gap-2">
+                        <span className="text-amber-400 font-bold">{key}:</span>
+                        <span className="text-zinc-300">{String(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => handleCancel(item.id)}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors shrink-0"
+                  >
+                    Odwołaj wizytę
+                  </button>
+                </div>
+              ))
             )}
           </div>
         )}
