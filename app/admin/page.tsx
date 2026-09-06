@@ -60,26 +60,27 @@ export default function AdminPage() {
     const serviceName = SERVICES_MAP[item.service_id] || `Usługa #${item.service_id}`;
 
     try {
-      // Send cancellation email notification
+      // Wysyłka na Twój zweryfikowany adres email
       await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: item.client_email,
-          subject: '[ODWOŁANIE REZERWACJI] Twoja wizyta została anulowana',
+          to: 'wojciechjarosz41@gmail.com',
+          subject: '[ODWOŁANIE REZERWACJI] Wizyta została anulowana',
           html: `
             <div style="font-family: sans-serif; padding: 20px; color: #333;">
               <h2>Wizyta została odwołana</h2>
-              <p>Witaj <strong>${item.client_name || 'Kliencie'}</strong>,</p>
-              <p>Informujemy, że Twoja rezerwacja została odwołana przez administratora.</p>
+              <p>Witaj <strong>Administratorze</strong>,</p>
+              <p>Anulowano rezerwację w systemie.</p>
               <hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;" />
               <h3>Szczegóły odwołanej wizyty:</h3>
               <ul>
+                <li><strong>Klient:</strong> ${item.client_name || '-'}</li>
+                <li><strong>Email klienta:</strong> ${item.client_email || '-'}</li>
                 <li><strong>Usługa:</strong> ${serviceName}</li>
                 <li><strong>Data:</strong> ${date}</li>
                 <li><strong>Godzina:</strong> ${time}</li>
               </ul>
-              <p style="margin-top: 20px;">Przepraszamy za niedogodności.</p>
             </div>
           `,
         }),
@@ -88,14 +89,14 @@ export default function AdminPage() {
       console.error('Błąd podczas wysyłania wiadomości e-mail:', e);
     }
 
-    // Delete record from Supabase
+    // Usunięcie wpisu z bazy Supabase
     const { error } = await supabase.from('appointments').delete().eq('id', item.id);
 
     if (error) {
       alert('Błąd podczas odwoływania wizyty w bazie: ' + error.message);
     } else {
       setAppointments((prev) => prev.filter((row) => row.id !== item.id));
-      alert('Wizyta została odwołana, a powiadomienie e-mail zostało wysłane do klienta.');
+      alert('Wizyta została odwołana, a powiadomienie e-mail zostało wysłane.');
     }
   };
 
