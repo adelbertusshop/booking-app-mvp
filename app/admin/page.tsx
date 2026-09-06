@@ -9,10 +9,12 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Appointment {
   id: string;
-  service_name: string;
+  service_name?: string;
+  service?: string;
   date: string;
   time: string;
-  client_name: string;
+  client_name?: string;
+  name?: string;
   email: string;
   phone: string;
 }
@@ -20,6 +22,7 @@ interface Appointment {
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,10 +42,27 @@ export default function AdminPage() {
       .select('*')
       .order('date', { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      console.error('Błąd pobierania:', error);
+    } else if (data) {
       setAppointments(data);
     }
     setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć tę rezerwację?')) return;
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert('Błąd podczas usuwania: ' + error.message);
+    } else {
+      setAppointments((prev) => prev.filter((item) => item.id !== id));
+    }
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -68,13 +88,24 @@ export default function AdminPage() {
         <form onSubmit={handleLogin} className="bg-zinc-950 border border-amber-500/30 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
           <h1 className="text-xl font-bold text-amber-400 text-center">Logowanie do Admina</h1>
           {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-          <input
-            type="password"
-            placeholder="Wpisz hasło..."
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 focus:outline-none focus:border-amber-400 text-sm"
-          />
+          
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Wpisz hasło..."
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 pr-10 text-amber-100 focus:outline-none focus:border-amber-400 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400 text-xs font-semibold"
+            >
+              {showPassword ? 'UKRYJ' : 'POKAŻ'}
+            </button>
+          </div>
+
           <button
             type="submit"
             className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 rounded-lg transition-colors text-sm"
@@ -117,6 +148,7 @@ export default function AdminPage() {
                     <th className="p-3">Klient</th>
                     <th className="p-3">Email</th>
                     <th className="p-3">Telefon</th>
+                    <th className="p-3 text-right">Akcja</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
@@ -124,10 +156,18 @@ export default function AdminPage() {
                     <tr key={item.id} className="hover:bg-zinc-900/50">
                       <td className="p-3 text-amber-200">{item.date}</td>
                       <td className="p-3">{item.time}</td>
-                      <td className="p-3">{item.service_name}</td>
-                      <td className="p-3 font-medium">{item.client_name}</td>
+                      <td className="p-3">{item.service_name || item.service || '-'}</td>
+                      <td className="p-3 font-medium">{item.client_name || item.name || '-'}</td>
                       <td className="p-3 text-zinc-400">{item.email}</td>
                       <td className="p-3 text-zinc-400">{item.phone}</td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1 rounded text-xs transition-colors"
+                        >
+                          Usuń
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
