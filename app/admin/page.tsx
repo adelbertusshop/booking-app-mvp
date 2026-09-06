@@ -44,6 +44,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
+      .neq('status', 'cancelled')
       .order('start_time', { ascending: true });
 
     if (!error && data) {
@@ -55,34 +56,27 @@ export default function AdminPage() {
   const handleCancel = async (item: Appointment) => {
     if (!confirm(`Czy na pewno chcesz odwołać wizytę klienta ${item.client_name || ''}?`)) return;
 
-    const { date, time } = formatDateTime(item.start_time);
-    const serviceName = SERVICES_MAP[item.service_id] || `Usługa #${item.service_id}`;
-
     try {
-      await fetch('/api/cancel-booking', {
+      const res = await fetch('/api/cancel-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId: item.id,
-          to: 'wojciechjarosz41@gmail.com',
-          clientEmail: item.client_email,
-          clientName: item.client_name,
-          serviceName: serviceName,
-          date: date,
-          time: time,
+          appointmentId: item.id,
+          email: item.client_email,
         }),
       });
-    } catch (e) {
-      console.error('Błąd podczas wysyłania powiadomienia:', e);
-    }
 
-    const { error } = await supabase.from('appointments').delete().eq('id', item.id);
+      const data = await res.json();
 
-    if (error) {
-      alert('Błąd podczas odwoływania wizyty w bazie: ' + error.message);
-    } else {
-      setAppointments((prev) => prev.filter((row) => row.id !== item.id));
-      alert('Wizyta została odwołana.');
+      if (res.ok && data.success) {
+        setAppointments((prev) => prev.filter((row) => row.id !== item.id));
+        alert('Wizyta została odwołana, a powiadomienia e-mail zostały wysłane.');
+      } else {
+        alert('Błąd podczas odwoływania wizyty: ' + (data.error || 'Nieznany błąd'));
+      }
+    } catch (e: any) {
+      console.error('Błąd wywołania API:', e);
+      alert('Wystąpił błąd podczas połączenia z serwerem.');
     }
   };
 
@@ -178,7 +172,7 @@ export default function AdminPage() {
         ) : (
           <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl overflow-x-auto">
             {appointments.length === 0 ? (
-              <p className="text-zinc-500 text-sm">Brak rezerwacji w bazie.</p>
+              <p className="text-zinc-500 text-sm">Brak aktywnych rezerwacji.</p>
             ) : (
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
