@@ -165,6 +165,15 @@ export default function Home() {
             {loading ? 'Rezerwowanie...' : 'Potwierdź Rezerwację'}
           </button>
         </form>
+
+        <div className="pt-4 text-center border-t border-amber-500/20">
+          <a
+            href="/admin"
+            className="text-xs uppercase font-bold text-amber-400 hover:underline tracking-widest cursor-pointer block py-2"
+          >
+            PANEL ADMINISTRATORA
+          </a>
+        </div>
       </div>
     </div>
   );
