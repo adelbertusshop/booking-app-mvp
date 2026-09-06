@@ -53,15 +53,49 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  const handleCancel = async (id: number | string) => {
-    if (!confirm('Czy na pewno chcesz odwołać tę wizytę?')) return;
+  const handleCancel = async (item: Appointment) => {
+    if (!confirm(`Czy na pewno chcesz odwołać wizytę klienta ${item.client_name || ''}?`)) return;
 
-    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    const { date, time } = formatDateTime(item.start_time);
+    const serviceName = SERVICES_MAP[item.service_id] || `Usługa #${item.service_id}`;
+
+    try {
+      // Send cancellation email notification
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: item.client_email,
+          subject: '[ODWOŁANIE REZERWACJI] Twoja wizyta została anulowana',
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; color: #333;">
+              <h2>Wizyta została odwołana</h2>
+              <p>Witaj <strong>${item.client_name || 'Kliencie'}</strong>,</p>
+              <p>Informujemy, że Twoja rezerwacja została odwołana przez administratora.</p>
+              <hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;" />
+              <h3>Szczegóły odwołanej wizyty:</h3>
+              <ul>
+                <li><strong>Usługa:</strong> ${serviceName}</li>
+                <li><strong>Data:</strong> ${date}</li>
+                <li><strong>Godzina:</strong> ${time}</li>
+              </ul>
+              <p style="margin-top: 20px;">Przepraszamy za niedogodności.</p>
+            </div>
+          `,
+        }),
+      });
+    } catch (e) {
+      console.error('Błąd podczas wysyłania wiadomości e-mail:', e);
+    }
+
+    // Delete record from Supabase
+    const { error } = await supabase.from('appointments').delete().eq('id', item.id);
 
     if (error) {
-      alert('Błąd podczas odwoływania wizyty: ' + error.message);
+      alert('Błąd podczas odwoływania wizyty w bazie: ' + error.message);
     } else {
-      setAppointments((prev) => prev.filter((item) => item.id !== id));
+      setAppointments((prev) => prev.filter((row) => row.id !== item.id));
+      alert('Wizyta została odwołana, a powiadomienie e-mail zostało wysłane do klienta.');
     }
   };
 
@@ -186,7 +220,7 @@ export default function AdminPage() {
                         <td className="p-3 text-zinc-400">{item.client_phone || '-'}</td>
                         <td className="p-3 text-right">
                           <button
-                            onClick={() => handleCancel(item.id)}
+                            onClick={() => handleCancel(item)}
                             className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow"
                           >
                             Odwołaj wizytę
