@@ -169,7 +169,7 @@ export default function Home() {
 
         <div className="pt-4 text-center border-t border-amber-500/20">
           <Link
-            href="/admin/login"
+            href="/admin"
             className="text-xs uppercase font-bold text-amber-400 hover:text-amber-300 hover:underline tracking-widest block py-2"
           >
             PANEL ADMINISTRATORA
