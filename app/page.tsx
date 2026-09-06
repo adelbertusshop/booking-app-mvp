@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -167,12 +168,12 @@ export default function Home() {
         </form>
 
         <div className="pt-4 text-center border-t border-amber-500/20">
-          <a
+          <Link
             href="/admin"
-            className="text-xs uppercase font-bold text-amber-400 hover:underline tracking-widest cursor-pointer block py-2"
+            className="text-xs uppercase font-bold text-amber-400 hover:text-amber-300 hover:underline tracking-widest block py-2"
           >
             PANEL ADMINISTRATORA
-          </a>
+          </Link>
         </div>
       </div>
     </div>
