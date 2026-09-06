@@ -7,7 +7,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Mapowanie ID usług na ich czytelne nazwy
 const SERVICES_MAP: Record<number | string, string> = {
   1: 'Stylistka rzęs',
   2: 'Przedłużanie rzęs',
@@ -60,43 +59,30 @@ export default function AdminPage() {
     const serviceName = SERVICES_MAP[item.service_id] || `Usługa #${item.service_id}`;
 
     try {
-      // Wysyłka na Twój zweryfikowany adres email
-      await fetch('/api/send-email', {
+      await fetch('/api/cancel-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          bookingId: item.id,
           to: 'wojciechjarosz41@gmail.com',
-          subject: '[ODWOŁANIE REZERWACJI] Wizyta została anulowana',
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; color: #333;">
-              <h2>Wizyta została odwołana</h2>
-              <p>Witaj <strong>Administratorze</strong>,</p>
-              <p>Anulowano rezerwację w systemie.</p>
-              <hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;" />
-              <h3>Szczegóły odwołanej wizyty:</h3>
-              <ul>
-                <li><strong>Klient:</strong> ${item.client_name || '-'}</li>
-                <li><strong>Email klienta:</strong> ${item.client_email || '-'}</li>
-                <li><strong>Usługa:</strong> ${serviceName}</li>
-                <li><strong>Data:</strong> ${date}</li>
-                <li><strong>Godzina:</strong> ${time}</li>
-              </ul>
-            </div>
-          `,
+          clientEmail: item.client_email,
+          clientName: item.client_name,
+          serviceName: serviceName,
+          date: date,
+          time: time,
         }),
       });
     } catch (e) {
-      console.error('Błąd podczas wysyłania wiadomości e-mail:', e);
+      console.error('Błąd podczas wysyłania powiadomienia:', e);
     }
 
-    // Usunięcie wpisu z bazy Supabase
     const { error } = await supabase.from('appointments').delete().eq('id', item.id);
 
     if (error) {
       alert('Błąd podczas odwoływania wizyty w bazie: ' + error.message);
     } else {
       setAppointments((prev) => prev.filter((row) => row.id !== item.id));
-      alert('Wizyta została odwołana, a powiadomienie e-mail zostało wysłane.');
+      alert('Wizyta została odwołana.');
     }
   };
 
