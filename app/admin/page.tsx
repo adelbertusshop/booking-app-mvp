@@ -80,6 +80,29 @@ export default function AdminPage() {
     }
   };
 
+  const handleWhatsApp = (item: Appointment) => {
+    if (!item.client_phone) {
+      alert('Brak numeru telefonu klienta.');
+      return;
+    }
+
+    // Czyszczenie numeru ze zbędnych znaków
+    let cleanPhone = item.client_phone.replace(/\D/g, '');
+    
+    // Jeśli brak kierunkowego Polski (48), dodajemy go automatycznie
+    if (cleanPhone.length === 9) {
+      cleanPhone = `48${cleanPhone}`;
+    }
+
+    const { date, time } = formatDateTime(item.start_time);
+    const serviceName = SERVICES_MAP[item.service_id] || `Usługa #${item.service_id}`;
+
+    const text = `Cześć ${item.client_name || ''}! Przypominamy o Twojej wizycie: ${serviceName} w dniu ${date} o godz. ${time}. W razie pytań prosimy o kontakt. Do zobaczenia!`;
+    
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === 'Wojownik.03') {
@@ -199,12 +222,18 @@ export default function AdminPage() {
                         <td className="p-3 text-amber-100">{time}</td>
                         <td className="p-3 text-zinc-400">{item.client_email || '-'}</td>
                         <td className="p-3 text-zinc-400">{item.client_phone || '-'}</td>
-                        <td className="p-3 text-right">
+                        <td className="p-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleWhatsApp(item)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow"
+                          >
+                            WhatsApp
+                          </button>
                           <button
                             onClick={() => handleCancel(item)}
                             className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow"
                           >
-                            Odwołaj wizytę
+                            Odwołaj
                           </button>
                         </td>
                       </tr>
