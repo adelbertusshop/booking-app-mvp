@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { serviceName, date, time, clientName, email, phone, salonSlug } = body;
 
-    // 1. Pobieramy ID salonu na podstawie slugu lub domeny
+    // 1. Pobieramy ID salonu na podstawie slugu
     let targetSalonId = null;
 
     if (salonSlug) {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       if (salon) targetSalonId = salon.id;
     }
 
-    // Jeśli brak slugu, bierzemy pierwszy salon testowy jako fallback
+    // Fallback: pobieramy pierwszy istniejący salon
     if (!targetSalonId) {
       const { data: defaultSalon } = await supabase
         .from('salons')
@@ -42,15 +42,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Zapisujemy rezerwację z właściwym salon_id
+    // 2. Zapis do bazy z dopasowanymi nazwami kolumn (date, time, service)
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
         {
           salon_id: targetSalonId,
-          service_name: serviceName,
-          booking_date: date,
-          booking_time: time,
+          service: serviceName,
+          date: date,
+          time: time,
           client_name: clientName,
           client_email: email,
           client_phone: phone,
