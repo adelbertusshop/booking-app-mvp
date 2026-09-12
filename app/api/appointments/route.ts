@@ -10,7 +10,23 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { serviceName, date, time, clientName, email, phone } = body;
+    const { serviceName, date, time, clientName, email, phone, salonSlug } = body;
+
+    // 1. Rozpoznawanie salonu po subdomenie/domenie lub ze sluga z body
+    const host = request.headers.get('host') || '';
+    const subdomain = host.split('.')[0]; // np. 'qqq' z 'qqq.domain.com'
+
+    // Szukamy salonu w bazie po slugu, subdomenie lub domenie
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id, name, owner_email, slug')
+      .or(`slug.eq.${salonSlug || subdomain},subdomain.eq.${subdomain},custom_domain.eq.${host}`)
+      .single();
+
+    if (salonError || !salon) {
+      console.error('[SALON DETECT ERROR]: Nie znaleziono salonu dla podanej domeny/sluga', host);
+      return NextResponse.json({ error: 'Nie znaleziono salonu dla tej rezerwacji.' }, { status: 404 });
+    }
 
     const formattedDateStr = date ? date.trim() : '';
     const formattedTimeStr = time ? time.trim() : '10:00';
@@ -22,11 +38,12 @@ export async function POST(request: NextRequest) {
 
     const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
 
-    // 1. Zapis do bazy Supabase
+    // 2. Zapis do bazy Supabase z DYNAMICZNYM salon_id
     const { data: newBooking, error: dbError } = await supabase
       .from('appointments')
       .insert([
         {
+          salon_id: salon.id, // <--- TUTAJ PRZYPISUJEMY REZERWACJĘ DO SALONU
           service_id: 1,
           client_name: clientName || 'Klient',
           client_email: email || '',
@@ -47,31 +64,33 @@ export async function POST(request: NextRequest) {
     const formattedDate = newBooking.start_time ? newBooking.start_time.split('T')[0] : formattedDateStr;
     const startTimeFormatted = newBooking.start_time ? (newBooking.start_time.split('T')[1] || formattedTimeStr) : formattedTimeStr;
 
-    // 2. Gwarantowana wysyłka do Admina (Zawsze przechodzi)
-    try {
-      await sendBookingConfirmation({
-        to: 'wojciechjarosz41@gmail.com',
-        clientName: 'Administrator',
-        serviceName: `[NOWA REZERWACJA] ${clientName || 'Klient'} - ${serviceName || 'Konsultacja'}`,
-        date: formattedDate,
-        startTime: startTimeFormatted,
-      });
-    } catch (err) {
-      console.error('[EMAIL ADMIN ERROR]:', err);
+    // 3. Powiadomienie do właściciela konkretnego salonu (pobranego z tabeli salons)
+    if (salon.owner_email) {
+      try {
+        await sendBookingConfirmation({
+          to: salon.owner_email,
+          clientName: salon.name || 'Właściciel Salonu',
+          serviceName: `[NOWA REZERWACJA] ${clientName || 'Klient'} - ${serviceName || 'Usługa'}`,
+          date: formattedDate,
+          startTime: startTimeFormatted,
+        });
+      } catch (err) {
+        console.error('[EMAIL SALON OWNER ERROR]:', err);
+      }
     }
 
-    // 3. Bezpieczna wysyłka do Klienta w bloku try/catch (błąd klienta nie przerywa działania)
+    // 4. Wysyłka e-maila do Klienta
     if (email) {
       try {
         await sendBookingConfirmation({
           to: email,
           clientName: clientName || 'Klient',
-          serviceName: serviceName || 'Konsultacja',
+          serviceName: serviceName || 'Usługa',
           date: formattedDate,
           startTime: startTimeFormatted,
         });
       } catch (err) {
-        console.error('[EMAIL CLIENT ERROR]: Odrzucono e-mail klienta (darmowy plan Resend)', err);
+        console.error('[EMAIL CLIENT ERROR]: Odrzucono e-mail klienta', err);
       }
     }
 
@@ -81,6 +100,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message || 'Błąd serwera' }, { status: 500 });
   }
 }
+
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
