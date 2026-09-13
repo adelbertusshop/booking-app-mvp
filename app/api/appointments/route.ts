@@ -42,19 +42,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Łączymy datę i godzinę w format ISO dla pola start_time
-    const combinedStartTime = new Date(`${date}T${time}:00`).toISOString();
+    // 2. Przygotowujemy start_time oraz end_time (np. +1 godzina)
+    const startDateObj = new Date(`${date}T${time}:00`);
+    const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000); // dodajemy 60 minut
 
-    // 3. Zapis do bazy trafiający idealnie w nazwy Twoich kolumn
+    const startIso = startDateObj.toISOString();
+    const endIso = endDateObj.toISOString();
+
+    // 3. Zapis do bazy uwzględniający wymaganą kolumnę end_time
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
         {
           salon_id: targetSalonId,
-          start_time: combinedStartTime,
+          start_time: startIso,
+          end_time: endIso,
           client_name: clientName,
           client_phone: phone,
-          // Jeśli z formularza przekazujesz ID usługi/pracownika, trafi tu. Jeśli nie, da domyślne 1:
           provider_id: providerId || 1,
           service_id: serviceId || 1,
         },
