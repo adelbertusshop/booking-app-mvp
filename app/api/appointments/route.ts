@@ -1,77 +1,41 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { date, time, clientName, email, phone, salonSlug, salonId, serviceId, providerId } = body;
+    const { date, time, clientName, email, phone, salonId, serviceId, providerId } = body;
 
-    const isUuid = (val: any) =>
-      typeof val === 'string' &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-    let targetSalonId: string | null = null;
-
-    // 1. Sprawdzanie po UUID lub wyszukiwanie po slug/nazwie
-    if (isUuid(salonId)) {
-      targetSalonId = salonId;
-    } else {
-      const searchValue = (salonSlug || salonId || '').trim();
-
-      if (searchValue) {
-        const { data: salon } = await supabase
-          .from('salons')
-          .select('id')
-          .or(`slug.ilike.${searchValue},name.ilike.${searchValue},salon_name.ilike.${searchValue}`)
-          .maybeSingle();
-
-        if (salon) {
-          targetSalonId = salon.id;
-        }
-      }
-    }
-
-    // 2. Fallback: Jeśli wpisany salon nie istnieje, przypisujemy do pierwszego w bazie
-    if (!targetSalonId) {
-      const { data: fallbackSalon } = await supabase
-        .from('salons')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-
-      if (fallbackSalon) {
-        targetSalonId = fallbackSalon.id;
-      }
-    }
-
-    if (!targetSalonId) {
+    if (!salonId) {
       return NextResponse.json(
-        { error: 'Brak zarejestrowanego salonu w bazie danych.' },
+        { error: 'Brak identyfikatora salonu (salonId).' },
         { status: 400 }
       );
     }
 
-    // Przygotowanie czasu rezerwacji
     const startDateObj = new Date(`${date}T${time}:00`);
     const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
 
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // Zapis do bazy
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
         {
-          salon_id: targetSalonId,
+          salon_id: salonId,
           start_time: startIso,
           end_time: endIso,
           client_name: clientName,
+          email: email,
           client_phone: phone,
           status: 'confirmed',
           provider_id: providerId || 1,
@@ -83,6 +47,27 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    try {
+      if (email && process.env.RESEND_API_KEY) {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: email,
+          subject: 'Potwierdzenie rezerwacji wizyty',
+          html: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+              <h2>Potwierdzenie rezerwacji</h2>
+              <p>Witaj <strong>${clientName}</strong>,</p>
+              <p>Twoja wizyta została pomyślnie zarezerwowana.</p>
+              <p><strong>Termin:</strong> ${date} o godzinie ${time}</p>
+              <p>Dziękujemy za skorzystanie z naszych usług!</p>
+            </div>
+          `,
+        });
+      }
+    } catch (emailErr) {
+      console.error('Błąd wysyłki e-maila przez Resend:', emailErr);
     }
 
     return NextResponse.json({ success: true, data: appointment });
