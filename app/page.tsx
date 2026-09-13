@@ -35,7 +35,7 @@ export default function Home() {
           const list = data.salons || [];
           setSalons(list);
           if (list.length > 0) {
-            setSelectedSalonSlug(list[0].slug);
+            setSelectedSalonSlug(list[0].slug || list[0].id);
           }
         }
       } catch (err) {
@@ -70,7 +70,6 @@ export default function Home() {
         body: JSON.stringify({
           ...formData,
           salonSlug: cleanSlug,
-          salon_slug: cleanSlug,
           salonId: cleanSlug,
         }),
       });
@@ -119,8 +118,8 @@ export default function Home() {
                 className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
               >
                 {salons.map((salon) => (
-                  <option key={salon.id} value={salon.slug}>
-                    {salon.name} ({salon.slug})
+                  <option key={salon.id} value={salon.slug || salon.id}>
+                    {salon.name || 'Salon'} ({salon.slug || 'brak slugu'})
                   </option>
                 ))}
               </select>
