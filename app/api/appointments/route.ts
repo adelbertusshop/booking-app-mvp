@@ -17,20 +17,17 @@ export async function POST(req: Request) {
 
     let targetSalonId: string | null = null;
 
-    // 1. Jeśli przekazano prawidłowy UUID
+    // 1. Sprawdzanie po UUID lub wyszukiwanie po slug/nazwie
     if (isUuid(salonId)) {
       targetSalonId = salonId;
     } else {
-      // 2. Szukamy konkretnego salonu po slug lub nazwie
-      const searchValue = salonSlug || (typeof salonId === 'string' ? salonId : null);
+      const searchValue = (salonSlug || salonId || '').trim();
 
       if (searchValue) {
-        const cleanSearch = searchValue.trim();
-
         const { data: salon } = await supabase
           .from('salons')
           .select('id')
-          .or(`slug.ilike.${cleanSearch},name.ilike.${cleanSearch}`)
+          .or(`slug.ilike.${searchValue},name.ilike.${searchValue},salon_name.ilike.${searchValue}`)
           .maybeSingle();
 
         if (salon) {
@@ -39,23 +36,22 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Jeśli szukany salon nie istnieje po nazwie (np. "QQQ"), pobieramy salon powiązany z emailem lub ostatnio utworzony salon
+    // 2. Fallback: Jeśli wpisany salon nie istnieje, przypisujemy do pierwszego w bazie
     if (!targetSalonId) {
-      const { data: latestSalon } = await supabase
+      const { data: fallbackSalon } = await supabase
         .from('salons')
         .select('id')
-        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (latestSalon) {
-        targetSalonId = latestSalon.id;
+      if (fallbackSalon) {
+        targetSalonId = fallbackSalon.id;
       }
     }
 
     if (!targetSalonId) {
       return NextResponse.json(
-        { error: 'Brak odpowiedniego salonu w bazie. Sprawdź nazwę salonu.' },
+        { error: 'Brak zarejestrowanego salonu w bazie danych.' },
         { status: 400 }
       );
     }
@@ -67,7 +63,7 @@ export async function POST(req: Request) {
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // Zapis do tabeli appointments
+    // Zapis do bazy
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
