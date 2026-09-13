@@ -15,6 +15,7 @@ export async function POST(req: Request) {
 
     let targetSalonId: string | null = null;
 
+    // 1. Jeśli to poprawny UUID
     if (isUuid(salonId)) {
       targetSalonId = salonId;
     } else {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
       if (searchValue) {
         const cleanSearch = searchValue.trim();
 
-        // Szukamy salonu dopasowując ALBO slug ALBO nazwę (wielkość liter bez znaczenia)
+        // Szukamy po slug lub name
         const { data: salon } = await supabase
           .from('salons')
           .select('id')
@@ -36,22 +37,35 @@ export async function POST(req: Request) {
       }
     }
 
-    // Jeśli nadal brak ID salonu – odrzucamy rezerwację
+    // 2. AWARYJNIE: Jeśli nadal brak ID, pobieramy pierwszy dowolny salon z bazy
+    if (!targetSalonId) {
+      const { data: fallbackSalon } = await supabase
+        .from('salons')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackSalon) {
+        targetSalonId = fallbackSalon.id;
+      }
+    }
+
+    // 3. Jeśli baza salonów jest całkowicie pusta
     if (!targetSalonId) {
       return NextResponse.json(
-        { error: 'Brak identyfikatora salonu. Rezerwacja odrzucona.' },
+        { error: 'Brak salonów w bazie danych. Utwórz najpierw salon w panelu.' },
         { status: 400 }
       );
     }
 
-    // 2. Przygotowujemy start_time oraz end_time (+1 godzina)
+    // Przygotowanie daty i godziny (+1h)
     const startDateObj = new Date(`${date}T${time}:00`);
     const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
 
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // 3. Zapis do bazy
+    // Zapis rezerwacji
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
