@@ -13,15 +13,23 @@ export async function POST(req: Request) {
 
     let targetSalonId = salonId || null;
 
-    // 1. Jeśli przekazano salonSlug (np. z adresu subdomeny lub ścieżki)
-    if (!targetSalonId && salonSlug) {
-      const { data: salon } = await supabase
-        .from('salons')
-        .select('id')
-        .eq('slug', salonSlug)
-        .single();
-      
-      if (salon) targetSalonId = salon.id;
+    // Poprawka: Jeśli salonId nie jest w formacie UUID (np. przesłano "qqq"), czyścimy go i traktujemy jako slug
+    const isUuid = targetSalonId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetSalonId);
+    
+    if (!isUuid) {
+      // Jeśli salonId nie jest UUID, sprawdźmy czy to slug
+      const slugToUse = salonSlug || targetSalonId;
+      targetSalonId = null;
+
+      if (slugToUse) {
+        const { data: salon } = await supabase
+          .from('salons')
+          .select('id')
+          .ilike('slug', slugToUse)
+          .single();
+        
+        if (salon) targetSalonId = salon.id;
+      }
     }
 
     // Jeśli brak ID salonu – odrzucamy próbę zapisania do losowego salonu
