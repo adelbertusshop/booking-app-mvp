@@ -9,12 +9,12 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { date, time, clientName, email, phone, salonSlug, serviceId, providerId } = body;
+    const { date, time, clientName, email, phone, salonSlug, salonId, serviceId, providerId } = body;
 
-    // 1. Pobieramy właściwy salon_id z bazy
-    let targetSalonId = null;
+    let targetSalonId = salonId || null;
 
-    if (salonSlug) {
+    // 1. Jeśli przekazano salonSlug (np. z adresu subdomeny lub ścieżki)
+    if (!targetSalonId && salonSlug) {
       const { data: salon } = await supabase
         .from('salons')
         .select('id')
@@ -24,20 +24,10 @@ export async function POST(req: Request) {
       if (salon) targetSalonId = salon.id;
     }
 
-    // Fallback: pobieramy pierwszy istniejący salon (dla testów)
-    if (!targetSalonId) {
-      const { data: defaultSalon } = await supabase
-        .from('salons')
-        .select('id')
-        .limit(1)
-        .single();
-
-      if (defaultSalon) targetSalonId = defaultSalon.id;
-    }
-
+    // Jeśli brak ID salonu – odrzucamy próbę zapisania do losowego salonu
     if (!targetSalonId) {
       return NextResponse.json(
-        { error: 'Nie znaleziono salonu dla tej rezerwacji.' },
+        { error: 'Brak identyfikatora salonu. Rezerwacja odrzucona.' },
         { status: 400 }
       );
     }
@@ -49,7 +39,7 @@ export async function POST(req: Request) {
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // 3. Zapis do bazy uwzględniający pole status
+    // 3. Zapis do bazy przypisany do WŁAŚCIWEGO salonu
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
@@ -59,7 +49,7 @@ export async function POST(req: Request) {
           end_time: endIso,
           client_name: clientName,
           client_phone: phone,
-          status: 'confirmed', // Dodajemy wymagany status
+          status: 'confirmed',
           provider_id: providerId || 1,
           service_id: serviceId || 1,
         },
