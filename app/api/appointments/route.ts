@@ -9,9 +9,9 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { serviceName, date, time, clientName, email, phone, salonSlug } = body;
+    const { date, time, clientName, email, phone, salonSlug, serviceId, providerId } = body;
 
-    // 1. Pobieramy ID salonu na podstawie slugu
+    // 1. Pobieramy właściwy salon_id z bazy
     let targetSalonId = null;
 
     if (salonSlug) {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       if (salon) targetSalonId = salon.id;
     }
 
-    // Fallback: pobieramy pierwszy istniejący salon
+    // Fallback: pobieramy pierwszy istniejący salon (dla testów)
     if (!targetSalonId) {
       const { data: defaultSalon } = await supabase
         .from('salons')
@@ -42,18 +42,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Zapis do bazy z dopasowanymi nazwami kolumn (date, time, service)
+    // 2. Łączymy datę i godzinę w format ISO dla pola start_time
+    const combinedStartTime = new Date(`${date}T${time}:00`).toISOString();
+
+    // 3. Zapis do bazy trafiający idealnie w nazwy Twoich kolumn
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
         {
           salon_id: targetSalonId,
-          service: serviceName,
-          date: date,
-          time: time,
+          start_time: combinedStartTime,
           client_name: clientName,
-          client_email: email,
           client_phone: phone,
+          // Jeśli z formularza przekazujesz ID usługi/pracownika, trafi tu. Jeśli nie, da domyślne 1:
+          provider_id: providerId || 1,
+          service_id: serviceId || 1,
         },
       ])
       .select()
