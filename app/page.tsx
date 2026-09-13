@@ -11,7 +11,7 @@ interface Salon {
 
 export default function Home() {
   const [salons, setSalons] = useState<Salon[]>([]);
-  const [selectedSalonSlug, setSelectedSalonSlug] = useState('');
+  const [selectedSalonSlug, setSelectedSalonSlug] = useState('qqq');
   const [loadingSalons, setLoadingSalons] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -26,7 +26,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Pobierz listę salonów przy załadowaniu strony
   useEffect(() => {
     async function fetchSalons() {
       try {
@@ -51,10 +50,12 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedSalonSlug) {
+    const cleanSlug = selectedSalonSlug.trim().toLowerCase();
+
+    if (!cleanSlug) {
       setMessage({
         type: 'error',
-        text: 'Wybierz salon z listy przed wysłaniem rezerwacji.'
+        text: 'Wpisz lub wybierz salon przed wysłaniem rezerwacji.'
       });
       return;
     }
@@ -68,7 +69,9 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          salonSlug: selectedSalonSlug,
+          salonSlug: cleanSlug,
+          salon_slug: cleanSlug,
+          salonId: cleanSlug,
         }),
       });
 
@@ -117,14 +120,14 @@ export default function Home() {
               >
                 {salons.map((salon) => (
                   <option key={salon.id} value={salon.slug}>
-                    {salon.name}
+                    {salon.name} ({salon.slug})
                   </option>
                 ))}
               </select>
             ) : (
               <input
                 type="text"
-                placeholder="Wpisz identyfikator (slug) salonu np. qqq"
+                placeholder="Wpisz identyfikator salonu (np. qqq)"
                 required
                 value={selectedSalonSlug}
                 onChange={(e) => setSelectedSalonSlug(e.target.value)}
