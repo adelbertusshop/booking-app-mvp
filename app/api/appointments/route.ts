@@ -11,24 +11,33 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { date, time, clientName, email, phone, salonSlug, salonId, serviceId, providerId } = body;
 
-    let targetSalonId = salonId || null;
+    // Sprawdzamy czy przekazany salonId to prawowity format UUID (np. 123e4567-e89b-12d3-a456-426614174000)
+    const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
-    // 1. Jeśli przekazano salonSlug lub salonId jako tekst (np. QQQ / qqq)
-    const rawSlug = salonSlug || (typeof salonId === 'string' ? salonId : null);
+    let targetSalonId: string | null = null;
 
-    if (!targetSalonId && rawSlug) {
-      const cleanSlug = rawSlug.trim().toLowerCase();
+    if (isUuid(salonId)) {
+      targetSalonId = salonId;
+    } else {
+      // Jeśli salonId to tekst (np. "qqq") albo go brakuje, szukamy w tabeli salons po slugu
+      const rawSlug = salonSlug || (typeof salonId === 'string' ? salonId : null);
 
-      const { data: salon } = await supabase
-        .from('salons')
-        .select('id')
-        .ilike('slug', cleanSlug)
-        .maybeSingle();
+      if (rawSlug) {
+        const cleanSlug = rawSlug.trim().toLowerCase();
 
-      if (salon) targetSalonId = salon.id;
+        const { data: salon } = await supabase
+          .from('salons')
+          .select('id')
+          .ilike('slug', cleanSlug)
+          .maybeSingle();
+
+        if (salon) {
+          targetSalonId = salon.id;
+        }
+      }
     }
 
-    // Jeśli brak ID salonu – odrzucamy próbę zapisania do losowego salonu
+    // Jeśli po wyszukiwaniu nadal brak UUID salonu – odrzucamy rezerwację
     if (!targetSalonId) {
       return NextResponse.json(
         { error: 'Brak identyfikatora salonu. Rezerwacja odrzucona.' },
