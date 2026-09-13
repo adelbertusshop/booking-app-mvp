@@ -5,17 +5,18 @@ import Link from 'next/link';
 
 interface Salon {
   id: string;
-  name: string;
-  slug: string;
+  salon_name?: string;
+  name?: string;
+  slug?: string;
 }
 
 export default function Home() {
   const [salons, setSalons] = useState<Salon[]>([]);
-  const [selectedSalonSlug, setSelectedSalonSlug] = useState('qqq');
+  const [selectedSalonId, setSelectedSalonId] = useState('');
   const [loadingSalons, setLoadingSalons] = useState(true);
 
   const [formData, setFormData] = useState({
-    serviceName: 'Barber',
+    serviceId: '1',
     date: '',
     time: '10:00',
     clientName: '',
@@ -32,10 +33,10 @@ export default function Home() {
         const res = await fetch('/api/salons');
         if (res.ok) {
           const data = await res.json();
-          const list = data.salons || [];
+          const list = data.salons || data || [];
           setSalons(list);
           if (list.length > 0) {
-            setSelectedSalonSlug(list[0].slug || list[0].id);
+            setSelectedSalonId(list[0].id);
           }
         }
       } catch (err) {
@@ -50,12 +51,10 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const cleanSlug = selectedSalonSlug.trim().toLowerCase();
-
-    if (!cleanSlug) {
+    if (!selectedSalonId) {
       setMessage({
         type: 'error',
-        text: 'Wpisz lub wybierz salon przed wysłaniem rezerwacji.'
+        text: 'Wybierz salon przed wysłaniem rezerwacji.',
       });
       return;
     }
@@ -69,8 +68,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          salonSlug: cleanSlug,
-          salonId: cleanSlug,
+          salonId: selectedSalonId,
         }),
       });
 
@@ -79,7 +77,7 @@ export default function Home() {
       if (res.ok) {
         setMessage({ type: 'success', text: 'Rezerwacja została pomyślnie złożona!' });
         setFormData({
-          serviceName: 'Barber',
+          serviceId: '1',
           date: '',
           time: '10:00',
           clientName: '',
@@ -113,46 +111,38 @@ export default function Home() {
               <div className="text-sm text-zinc-400">Ładowanie salonów...</div>
             ) : salons.length > 0 ? (
               <select
-                value={selectedSalonSlug}
-                onChange={(e) => setSelectedSalonSlug(e.target.value)}
+                value={selectedSalonId}
+                onChange={(e) => setSelectedSalonId(e.target.value)}
                 className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
               >
                 {salons.map((salon) => (
-                  <option key={salon.id} value={salon.slug || salon.id}>
-                    {salon.name || 'Salon'} ({salon.slug || 'brak slugu'})
+                  <option key={salon.id} value={salon.id}>
+                    {salon.salon_name || salon.name || 'Salon'}
                   </option>
                 ))}
               </select>
             ) : (
-              <input
-                type="text"
-                placeholder="Wpisz identyfikator salonu (np. qqq)"
-                required
-                value={selectedSalonSlug}
-                onChange={(e) => setSelectedSalonSlug(e.target.value)}
-                className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
-              />
+              <div className="text-sm text-red-400">Brak dostępnych salonów w bazie.</div>
             )}
           </div>
 
-          {/* 1. Wybierz usługę */}
+          {/* Wybór usługi */}
           <div>
             <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
               1. Wybierz usługę
             </label>
             <select
-              value={formData.serviceName}
-              onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
+              value={formData.serviceId}
+              onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })}
               className="w-full bg-zinc-900 border border-amber-500/30 focus:border-amber-400 text-amber-100 rounded-lg px-4 py-3 text-sm outline-none transition-all"
             >
-              <option value="Barber">Barber</option>
-              <option value="Fryzjer / Fryzjerka">Fryzjer / Fryzjerka</option>
-              <option value="Stylistka rzęs">Stylistka rzęs</option>
-              <option value="Paznokcie">Paznokcie</option>
+              <option value="1">Strzyżenie męskie</option>
+              <option value="2">Strzyżenie damskie</option>
+              <option value="3">Koloryzacja</option>
             </select>
           </div>
 
-          {/* 2. Wybierz dzień */}
+          {/* Wybierz dzień */}
           <div>
             <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
               2. Wybierz dzień
@@ -166,7 +156,7 @@ export default function Home() {
             />
           </div>
 
-          {/* 3. Wybierz godzinę */}
+          {/* Wybierz godzinę */}
           <div>
             <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
               3. Wybierz godzinę
@@ -192,7 +182,7 @@ export default function Home() {
             </select>
           </div>
 
-          {/* 4. Twoje dane */}
+          {/* Twoje dane */}
           <div className="space-y-3 pt-2">
             <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider">
               4. Twoje dane
@@ -246,7 +236,7 @@ export default function Home() {
 
         <div className="pt-4 text-center border-t border-amber-500/20">
           <Link
-            href="/admin/login"
+            href="/admin"
             className="text-xs uppercase font-bold text-amber-400 hover:text-amber-300 hover:underline tracking-widest block py-2"
           >
             PANEL ADMINISTRATORA
