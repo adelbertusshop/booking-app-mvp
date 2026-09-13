@@ -42,14 +42,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Przygotowujemy start_time oraz end_time (np. +1 godzina)
+    // 2. Przygotowujemy start_time oraz end_time (+1 godzina)
     const startDateObj = new Date(`${date}T${time}:00`);
-    const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000); // dodajemy 60 minut
+    const endDateObj = new Date(startDateObj.getTime() + 60 * 60 * 1000);
 
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // 3. Zapis do bazy uwzględniający wymaganą kolumnę end_time
+    // 3. Zapis do bazy uwzględniający pole status
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
           end_time: endIso,
           client_name: clientName,
           client_phone: phone,
+          status: 'confirmed', // Dodajemy wymagany status
           provider_id: providerId || 1,
           service_id: serviceId || 1,
         },
