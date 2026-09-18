@@ -38,7 +38,7 @@ export async function POST(req: Request) {
           start_time: startIso,
           end_time: endIso,
           client_name: clientName,
-          email: email,
+         client_email: email,
           client_phone: phone,
           status: 'confirmed',
           provider_id: providerId || 1,
