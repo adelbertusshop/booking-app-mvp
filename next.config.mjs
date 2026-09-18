@@ -1,13 +1,27 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  typescript: {
-    // Ignoruje błędy TypeScript podczas npm run build
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Ignoruje błędy ESLint podczas npm run build
-    ignoreDuringBuilds: true,
-  },
-};
+name: CI
 
-export default nextConfig;
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
