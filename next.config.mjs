@@ -1,10 +1,12 @@
-/** @type {import('next').NextConfig} */
+/** @type {import('next').NextMode} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   eslint: {
+    // Ignoruje błędy ESLint podczas kompilacji (npm run build)
     ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Opcjonalnie: ignoruje błędy TypeScript podczas kompilacji
+    ignoreBuildErrors: true,
   },
 };
 
