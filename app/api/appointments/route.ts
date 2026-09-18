@@ -3,12 +3,14 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Bezpieczna inicjalizacja Supabase na wypadek braku zmiennych w CI
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-key';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Bezpieczna inicjalizacja Resend
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(req: Request) {
   try {
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      if (email && process.env.RESEND_API_KEY) {
+      if (email && resend) {
         await resend.emails.send({
           from: 'onboarding@resend.dev',
           to: email,
@@ -72,7 +74,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, data: appointment });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Wystąpił nieznany błąd.';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
