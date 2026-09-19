@@ -6,7 +6,6 @@ import { Resend } from 'resend';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-key';
 const supabase = createClient(supabaseUrl, supabaseKey);
-
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function GET(req: Request) {
@@ -19,7 +18,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
     }
 
-    // Pobierz zajęte sloty na dany dzień dla tego salonu
     const dayStart = `${date}T00:00:00`;
     const dayEnd = `${date}T23:59:59`;
 
@@ -31,9 +29,7 @@ export async function GET(req: Request) {
       .gte('start_time', dayStart)
       .lte('start_time', dayEnd);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const bookedTimes = (booked || []).map((a) => ({
       start: a.start_time?.split('T')[1]?.substring(0, 5) || '',
@@ -51,15 +47,21 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { date, time, clientName, email, phone, salonId, serviceId } = body;
 
-    if (!salonId) {
-      return NextResponse.json({ error: 'Brak identyfikatora salonu (salonId).' }, { status: 400 });
-    }
-    if (!date || !time) {
-      return NextResponse.json({ error: 'Brak daty lub godziny.' }, { status: 400 });
-    }
+    if (!salonId) return NextResponse.json({ error: 'Brak identyfikatora salonu.' }, { status: 400 });
+    if (!date || !time) return NextResponse.json({ error: 'Brak daty lub godziny.' }, { status: 400 });
 
-    // Pobierz czas trwania usługi
+    // Pobierz dane usługi i salonu
     let durationMinutes = 60;
+    let serviceName = 'Wizyta';
+    let salonName = 'Salon';
+
+    const { data: salon } = await supabase
+      .from('salons')
+      .select('salon_name, admin_email')
+      .eq('id', salonId)
+      .single();
+    if (salon?.salon_name) salonName = salon.salon_name;
+
     if (serviceId) {
       const { data: svc } = await supabase
         .from('services')
@@ -67,6 +69,7 @@ export async function POST(req: Request) {
         .eq('id', serviceId)
         .single();
       if (svc?.duration_minutes) durationMinutes = svc.duration_minutes;
+      if (svc?.name) serviceName = svc.name;
     }
 
     const startDateObj = new Date(`${date}T${time}:00`);
@@ -74,7 +77,7 @@ export async function POST(req: Request) {
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // Sprawdź czy slot jest wolny
+    // Sprawdź kolizję
     const { data: conflict } = await supabase
       .from('appointments')
       .select('id')
@@ -85,13 +88,10 @@ export async function POST(req: Request) {
       .limit(1);
 
     if (conflict && conflict.length > 0) {
-      return NextResponse.json(
-        { error: 'Ten termin jest już zajęty. Wybierz inną godzinę.' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Ten termin jest już zajęty. Wybierz inną godzinę.' }, { status: 409 });
     }
 
-    // Zapis do bazy
+    // Zapis
     const { data: appointment, error } = await supabase
       .from('appointments')
       .insert([{
@@ -107,61 +107,66 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    // Pobierz nazwę usługi do emaila
-    let serviceName = 'Wizyta';
-    if (serviceId) {
-      const { data: svc } = await supabase
-        .from('services')
-        .select('name')
-        .eq('id', serviceId)
-        .single();
-      if (svc?.name) serviceName = svc.name;
-    }
-
-    // Wyślij email
-    try {
-      if (email && resend) {
+    // Email do klienta
+    if (email && resend) {
+      try {
         await resend.emails.send({
           from: 'onboarding@resend.dev',
-          to: email,
-          subject: `✅ Potwierdzenie rezerwacji — ${serviceName}`,
+          to: [email],
+          subject: `✅ Potwierdzenie rezerwacji — ${salonName}`,
           html: `
-            <div style="font-family: Arial, sans-serif; color: #333; max-width: 500px; margin: 0 auto;">
-              <div style="background: #1a1a1a; padding: 24px; border-radius: 12px;">
-                <h2 style="color: #f59e0b; margin-top: 0;">Rezerwacja potwierdzona ✅</h2>
-                <p style="color: #e5e7eb;">Witaj <strong>${clientName}</strong>,</p>
-                <p style="color: #e5e7eb;">Twoja wizyta została pomyślnie zarezerwowana.</p>
-                <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-                  <tr>
-                    <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Usługa</td>
-                    <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${serviceName}</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Data</td>
-                    <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${date}</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #9ca3af; padding: 8px 0;">Godzina</td>
-                    <td style="color: #f59e0b; font-weight: bold; font-size: 18px; padding: 8px 0;">${time}</td>
-                  </tr>
-                </table>
-                <p style="color: #6b7280; font-size: 12px;">Dziękujemy za rezerwację!</p>
-              </div>
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;">
+              <h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2>
+              <p style="color:#e5e7eb;">Witaj <strong style="color:#fff;">${clientName}</strong>,</p>
+              <p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${salonName}</strong> została potwierdzona.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr>
+              </table>
+              <p style="color:#6b7280;font-size:12px;">Do zobaczenia! 💇</p>
             </div>
           `,
         });
+        console.log('[EMAIL OK] Klient:', email);
+      } catch (emailErr) {
+        console.error('[EMAIL ERR] Klient:', emailErr);
       }
-    } catch (emailErr) {
-      console.error('Błąd wysyłki e-maila:', emailErr);
+    }
+
+    // Email do właściciela salonu
+    const adminEmail = salon?.admin_email || 'wojciechjarosz41@gmail.com';
+    if (resend) {
+      try {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: [adminEmail],
+          subject: `🔔 Nowa rezerwacja — ${salonName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;">
+              <h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Klient</td><td style="color:#fff;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${clientName}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Email</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${email || '-'}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Telefon</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${phone || '-'}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr>
+                <tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr>
+              </table>
+            </div>
+          `,
+        });
+        console.log('[EMAIL OK] Admin:', adminEmail);
+      } catch (emailErr) {
+        console.error('[EMAIL ERR] Admin:', emailErr);
+      }
     }
 
     return NextResponse.json({ success: true, data: appointment });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Wystąpił nieznany błąd.';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    const msg = err instanceof Error ? err.message : 'Nieznany błąd.';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
