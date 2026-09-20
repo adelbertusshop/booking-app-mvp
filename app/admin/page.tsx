@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+function toSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, (c: string) => ({'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z'} as any)[c] || c)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -198,7 +206,7 @@ export default function AdminPage() {
       const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: password.trim() });
       if (error) { setError(error.message); return; }
       if (data?.user) {
-        await supabase.from('salons').insert([{ user_id: data.user.id, admin_email: email.trim(), salon_name: salonNameReg.trim(), whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!' }]);
+        await supabase.from('salons').insert([{ user_id: data.user.id, admin_email: email.trim(), salon_name: salonNameReg.trim(), slug: toSlug(salonNameReg.trim()), whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!' }]);
         alert('Konto zarejestrowane! Zaloguj się.');
         setIsRegistering(false); setSalonNameReg('');
       }
