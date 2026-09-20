@@ -392,11 +392,15 @@ export default function AdminPage() {
                   </div>
                   {h.is_working ? (
                     <div className="flex items-center gap-2">
-                      <input type="time" value={h.open_time} onChange={(e) => updateHour(h.day_of_week, 'open_time', e.target.value)}
-                        className="bg-zinc-800 border border-amber-500/20 rounded-lg px-3 py-1.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
+                      <select value={h.open_time} onChange={(e) => updateHour(h.day_of_week, 'open_time', e.target.value)}
+                        className="bg-zinc-800 border border-amber-500/20 rounded-lg px-3 py-1.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400">
+                        {['06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                       <span className="text-zinc-500 text-xs">do</span>
-                      <input type="time" value={h.close_time} onChange={(e) => updateHour(h.day_of_week, 'close_time', e.target.value)}
-                        className="bg-zinc-800 border border-amber-500/20 rounded-lg px-3 py-1.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
+                      <select value={h.close_time} onChange={(e) => updateHour(h.day_of_week, 'close_time', e.target.value)}
+                        className="bg-zinc-800 border border-amber-500/20 rounded-lg px-3 py-1.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400">
+                        {['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30','22:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
                   ) : (
                     <span className="text-zinc-600 text-xs italic">Dzień wolny</span>
