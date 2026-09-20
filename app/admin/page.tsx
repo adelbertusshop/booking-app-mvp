@@ -61,6 +61,7 @@ export default function AdminPage() {
   const [savingHours, setSavingHours] = useState(false);
 
   const [salonId, setSalonId] = useState<string | null>(null);
+  const [salonSlug, setSalonSlug] = useState<string>('');
   const [salonName, setSalonName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -98,6 +99,7 @@ export default function AdminPage() {
     if (salon) {
       setSalonId(salon.id);
       setSalonName(salon.salon_name || 'Mój Salon');
+      setSalonSlug(salon.slug || '');
       setAdminEmail(salon.admin_email || currentUser.email || '');
       setWhatsappTemplate(salon.whatsapp_template || 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!');
       await fetchAppointments(salon.id);
@@ -450,7 +452,7 @@ export default function AdminPage() {
             <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-3">
               <p className="text-xs text-amber-400 font-bold mb-1">🔗 Link dla klientów:</p>
               <p className="text-xs text-zinc-400 break-all">
-                {typeof window !== 'undefined' ? window.location.origin : 'https://booking-app-mvp.vercel.app'}/salon/{salonId || 'twoje-id'}
+                {typeof window !== 'undefined' ? window.location.origin : 'https://booking-app-mvp.vercel.app'}/salon/{salonSlug || salonId || 'twoje-id'}
               </p>
             </div>
             <button type="submit" disabled={savingSettings}
