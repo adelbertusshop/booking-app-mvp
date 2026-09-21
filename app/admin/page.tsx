@@ -60,7 +60,13 @@ export default function AdminPage() {
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'appointments' | 'services' | 'hours' | 'settings'>('appointments');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments' | 'services' | 'hours' | 'settings'>('dashboard');
+  const [showRevenue, setShowRevenue] = useState<boolean>(false);
+  const [statsToday, setStatsToday] = useState<Appointment[]>([]);
+  const [statsMonthCount, setStatsMonthCount] = useState<number>(0);
+  const [statsTopService, setStatsTopService] = useState<string>('—');
+  const [statsRevenue, setStatsRevenue] = useState<number>(0);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [hours, setHours] = useState<SalonHour[]>(DEFAULT_HOURS);
@@ -108,11 +114,13 @@ export default function AdminPage() {
       setSalonId(salon.id);
       setSalonName(salon.salon_name || 'Mój Salon');
       setSalonSlug(salon.slug || '');
+      setShowRevenue(salon.show_revenue || false);
       setAdminEmail(salon.admin_email || currentUser.email || '');
       setWhatsappTemplate(salon.whatsapp_template || 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!');
       await fetchAppointments(salon.id);
       await fetchServices(salon.id);
       await fetchHours(salon.id);
+      await fetchStats(salon.id, salon.show_revenue || false);
     }
     setLoadingData(false);
   };
@@ -136,6 +144,71 @@ export default function AdminPage() {
       // Ustaw domyślne jeśli brak
       setHours(DEFAULT_HOURS);
     }
+  };
+
+  const fetchStats = async (sid: string, withRevenue: boolean) => {
+    setLoadingStats(true);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+    // Rezerwacje na dziś
+    const { data: todayData } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('salon_id', sid)
+      .neq('status', 'cancelled')
+      .gte('start_time', todayStart)
+      .lte('start_time', todayEnd)
+      .order('start_time', { ascending: true });
+    setStatsToday((todayData as Appointment[]) || []);
+
+    // Rezerwacje w tym miesiącu
+    const { data: monthData } = await supabase
+      .from('appointments')
+      .select('service_id')
+      .eq('salon_id', sid)
+      .neq('status', 'cancelled')
+      .gte('start_time', monthStart)
+      .lte('start_time', monthEnd);
+
+    setStatsMonthCount((monthData || []).length);
+
+    // Najpopularniejsza usługa
+    const withService = (monthData || []).filter((a: any) => a.service_id);
+    if (withService.length > 0) {
+      const counts: Record<string, number> = {};
+      withService.forEach((a: any) => {
+        counts[a.service_id] = (counts[a.service_id] || 0) + 1;
+      });
+      const topId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+      const { data: svcData } = await supabase.from('services').select('name').eq('id', topId).single();
+      setStatsTopService(svcData?.name || '—');
+    } else {
+      setStatsTopService('—');
+    }
+
+    // Przychód (opcjonalny)
+    if (withRevenue) {
+      const { data: revenueData } = await supabase
+        .from('appointments')
+        .select('service_id, services(price)')
+        .eq('salon_id', sid)
+        .neq('status', 'cancelled')
+        .gte('start_time', monthStart)
+        .lte('start_time', monthEnd)
+        .not('service_id', 'is', null);
+
+      const total = (revenueData || []).reduce((sum: number, a: any) => {
+        const price = a.services?.price;
+        return price ? sum + Number(price) : sum;
+      }, 0);
+      setStatsRevenue(total);
+    }
+
+    setLoadingStats(false);
   };
 
   const handleSaveHours = async () => {
@@ -225,7 +298,7 @@ export default function AdminPage() {
       setNewPassword('');
     }
     if (salonId) {
-      const { error } = await supabase.from('salons').update({ salon_name: salonName, admin_email: adminEmail, whatsapp_template: whatsappTemplate }).eq('id', salonId);
+      const { error } = await supabase.from('salons').update({ salon_name: salonName, admin_email: adminEmail, whatsapp_template: whatsappTemplate, show_revenue: showRevenue }).eq('id', salonId);
       if (error) alert('Błąd zapisu: ' + error.message);
       else alert('✅ Ustawienia zapisane!');
     }
@@ -300,13 +373,69 @@ export default function AdminPage() {
         </div>
 
         <div className="flex space-x-4 border-b border-zinc-800 pb-2 overflow-x-auto">
-          {(['appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
+          {(['dashboard', 'appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`text-sm font-semibold pb-1 whitespace-nowrap transition-all ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
-              {tab === 'appointments' ? '📅 Rezerwacje' : tab === 'services' ? '✂️ Usługi' : tab === 'hours' ? '🕐 Godziny pracy' : '⚙️ Ustawienia'}
+              {tab === 'dashboard' ? '📊 Dashboard' : tab === 'appointments' ? '📅 Rezerwacje' : tab === 'services' ? '✂️ Usługi' : tab === 'hours' ? '🕐 Godziny pracy' : '⚙️ Ustawienia'}
             </button>
           ))}
         </div>
+
+        {/* DASHBOARD */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-4">
+            {loadingStats ? (
+              <p className="text-amber-200 text-sm animate-pulse">Wczytywanie statystyk...</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Rezerwacje w tym miesiącu */}
+                  <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5">
+                    <p className="text-xs text-zinc-400 uppercase font-bold mb-1">📅 Ten miesiąc</p>
+                    <p className="text-4xl font-black text-amber-400">{statsMonthCount}</p>
+                    <p className="text-xs text-zinc-500 mt-1">rezerwacji</p>
+                  </div>
+                  {/* Najpopularniejsza usługa */}
+                  <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5">
+                    <p className="text-xs text-zinc-400 uppercase font-bold mb-1">✨ Najpopularniejsza</p>
+                    <p className="text-lg font-bold text-amber-200 mt-2 leading-tight">{statsTopService}</p>
+                    <p className="text-xs text-zinc-500 mt-1">usługa w tym miesiącu</p>
+                  </div>
+                  {/* Przychód - opcjonalny */}
+                  {showRevenue && (
+                    <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5">
+                      <p className="text-xs text-zinc-400 uppercase font-bold mb-1">💰 Przychód</p>
+                      <p className="text-4xl font-black text-amber-400">{statsRevenue} <span className="text-lg font-normal">PLN</span></p>
+                      <p className="text-xs text-zinc-500 mt-1">z rezerwacji w tym miesiącu</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grafik na dziś */}
+                <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5">
+                  <p className="text-sm font-bold text-amber-400 mb-3">🕐 Grafik na dziś</p>
+                  {statsToday.length === 0 ? (
+                    <p className="text-zinc-500 text-sm">Brak rezerwacji na dziś.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {statsToday.map((appt) => {
+                        const time = appt.start_time ? new Date(appt.start_time).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '—';
+                        const svcName = services.find(s => String(s.id) === String(appt.service_id))?.name || 'Wizyta';
+                        return (
+                          <div key={appt.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5">
+                            <span className="text-amber-400 font-bold text-sm w-12">{time}</span>
+                            <span className="text-amber-200 text-sm font-semibold">{appt.client_name}</span>
+                            <span className="text-zinc-400 text-xs ml-auto">{svcName}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* REZERWACJE */}
         {activeTab === 'appointments' && (
@@ -456,6 +585,23 @@ export default function AdminPage() {
               <textarea rows={3} value={whatsappTemplate} onChange={(e) => setWhatsappTemplate(e.target.value)}
                 className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
               <p className="text-xs text-zinc-500 mt-1">Zmienne: {'{NAME}'}, {'{SERVICE}'}, {'{DATE}'}, {'{TIME}'}</p>
+            </div>
+            <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-4 space-y-3">
+              <p className="text-xs font-bold text-amber-300 uppercase">📊 Statystyki panelu</p>
+              {[
+                { key: 'month', label: 'Rezerwacje w tym miesiącu', locked: true },
+                { key: 'top', label: 'Najpopularniejsza usługa', locked: true },
+                { key: 'today', label: 'Dzisiejszy grafik', locked: true },
+              ].map(item => (
+                <div key={item.key} className="flex items-center gap-2">
+                  <input type="checkbox" checked={true} disabled className="w-4 h-4 accent-amber-500" />
+                  <span className="text-xs text-zinc-400">{item.label}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={showRevenue} onChange={(e) => setShowRevenue(e.target.checked)} className="w-4 h-4 accent-amber-500 cursor-pointer" />
+                <span className="text-xs text-zinc-300 cursor-pointer" onClick={() => setShowRevenue(!showRevenue)}>💰 Przychód (suma cen zarezerwowanych usług)</span>
+              </div>
             </div>
             <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-3">
               <p className="text-xs text-amber-400 font-bold mb-1">🔗 Link dla klientów:</p>
