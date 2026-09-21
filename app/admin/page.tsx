@@ -11,6 +11,32 @@ function toSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function buildWhatsAppLink(
+  phone: string,
+  template: string,
+  name: string,
+  service: string,
+  date: string,
+  time: string
+): string | null {
+  if (!phone) return null;
+  // Oczyść numer
+  let cleaned = phone.replace(/[\s+()\-]/g, '');
+  // Usuń wiodące zera
+  cleaned = cleaned.replace(/^0+/, '');
+  // Dodaj prefix 48 jeśli nie ma
+  if (!cleaned.startsWith('48')) cleaned = '48' + cleaned;
+  if (!/^\d{10,13}$/.test(cleaned)) return null;
+
+  const message = template
+    .replace('{NAME}', name)
+    .replace('{SERVICE}', service)
+    .replace('{DATE}', date)
+    .replace('{TIME}', time);
+
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -596,7 +622,24 @@ export default function AdminPage() {
                           <td className="p-3 text-zinc-300">{getServiceName(item.service_id)}</td>
                           <td className="p-3 text-amber-100 whitespace-nowrap">{formatDate(item.start_time)}</td>
                           <td className="p-3 text-zinc-400 text-xs">{item.client_email || '-'}</td>
-                          <td className="p-3 text-zinc-400 text-xs">{item.client_phone || '-'}</td>
+                          <td className="p-3 text-xs">
+                          {(() => {
+                            if (!item.client_phone) return <span className="text-zinc-600">—</span>;
+                            const svcName = getServiceName(item.service_id);
+                            const apptDate = item.start_time ? new Date(item.start_time).toLocaleDateString('pl-PL') : '—';
+                            const apptTime = item.start_time ? new Date(item.start_time).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '—';
+                            const waLink = buildWhatsAppLink(item.client_phone, whatsappTemplate, item.client_name || '', svcName, apptDate, apptTime);
+                            if (!waLink) return <span className="text-zinc-400">{item.client_phone}</span>;
+                            return (
+                              <a href={waLink} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-green-400 hover:text-green-300 font-semibold transition-colors"
+                                title="Wyślij wiadomość WhatsApp">
+                                <span>📱</span>
+                                <span>{item.client_phone}</span>
+                              </a>
+                            );
+                          })()}
+                        </td>
                           <td className="p-3 text-center">
                             <button onClick={() => handleDeleteAppointment(item)} disabled={deletingId === item.id}
                               className="bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
