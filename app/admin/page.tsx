@@ -60,13 +60,24 @@ export default function AdminPage() {
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments' | 'services' | 'hours' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'appointments' | 'services' | 'hours' | 'settings'>('dashboard');
   const [showRevenue, setShowRevenue] = useState<boolean>(false);
   const [statsToday, setStatsToday] = useState<Appointment[]>([]);
   const [statsMonthCount, setStatsMonthCount] = useState<number>(0);
   const [statsTopService, setStatsTopService] = useState<string>('—');
   const [statsRevenue, setStatsRevenue] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0,0,0,0);
+    return d;
+  });
+  const [calAppts, setCalAppts] = useState<Appointment[]>([]);
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [loadingCal, setLoadingCal] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [hours, setHours] = useState<SalonHour[]>(DEFAULT_HOURS);
@@ -121,6 +132,11 @@ export default function AdminPage() {
       await fetchServices(salon.id);
       await fetchHours(salon.id);
       await fetchStats(salon.id, salon.show_revenue || false);
+      const wd = new Date();
+      const diff = wd.getDay() === 0 ? -6 : 1 - wd.getDay();
+      wd.setDate(wd.getDate() + diff);
+      wd.setHours(0,0,0,0);
+      await fetchCalendar(salon.id, wd);
     }
     setLoadingData(false);
   };
@@ -209,6 +225,22 @@ export default function AdminPage() {
     }
 
     setLoadingStats(false);
+  };
+
+  const fetchCalendar = async (sid: string, start: Date) => {
+    setLoadingCal(true);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    const { data } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('salon_id', sid)
+      .neq('status', 'cancelled')
+      .gte('start_time', start.toISOString())
+      .lt('start_time', end.toISOString())
+      .order('start_time', { ascending: true });
+    setCalAppts((data as Appointment[]) || []);
+    setLoadingCal(false);
   };
 
   const handleSaveHours = async () => {
@@ -373,10 +405,10 @@ export default function AdminPage() {
         </div>
 
         <div className="flex space-x-4 border-b border-zinc-800 pb-2 overflow-x-auto">
-          {(['dashboard', 'appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
+          {(['dashboard', 'calendar', 'appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`text-sm font-semibold pb-1 whitespace-nowrap transition-all ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
-              {tab === 'dashboard' ? '📊 Dashboard' : tab === 'appointments' ? '📅 Rezerwacje' : tab === 'services' ? '✂️ Usługi' : tab === 'hours' ? '🕐 Godziny pracy' : '⚙️ Ustawienia'}
+              {tab === 'dashboard' ? '📊 Dashboard' : tab === 'calendar' ? '📆 Kalendarz' : tab === 'appointments' ? '📅 Rezerwacje' : tab === 'services' ? '✂️ Usługi' : tab === 'hours' ? '🕐 Godziny pracy' : '⚙️ Ustawienia'}
             </button>
           ))}
         </div>
@@ -433,6 +465,111 @@ export default function AdminPage() {
                   )}
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* KALENDARZ */}
+        {activeTab === 'calendar' && (
+          <div className="space-y-3">
+            {/* Nawigacja tygodnia */}
+            <div className="flex items-center justify-between">
+              <button onClick={() => {
+                const prev = new Date(weekStart);
+                prev.setDate(prev.getDate() - 7);
+                setWeekStart(prev);
+                if (salonId) fetchCalendar(salonId, prev);
+              }} className="bg-zinc-900 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-lg text-xs font-bold hover:border-amber-400 transition-colors">
+                ← Poprzedni
+              </button>
+              <span className="text-amber-400 font-bold text-sm">
+                {weekStart.toLocaleDateString('pl-PL', { day: '2-digit', month: 'long' })} — {new Date(weekStart.getTime() + 6*86400000).toLocaleDateString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={() => {
+                const next = new Date(weekStart);
+                next.setDate(next.getDate() + 7);
+                setWeekStart(next);
+                if (salonId) fetchCalendar(salonId, next);
+              }} className="bg-zinc-900 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-lg text-xs font-bold hover:border-amber-400 transition-colors">
+                Następny →
+              </button>
+            </div>
+
+            {loadingCal ? (
+              <p className="text-amber-200 text-sm animate-pulse text-center py-8">Ładowanie kalendarza...</p>
+            ) : (
+              <div className="bg-zinc-950 border border-amber-500/20 rounded-2xl overflow-hidden">
+                {/* Popup szczegółów */}
+                {selectedAppt && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setSelectedAppt(null)}>
+                    <div className="bg-zinc-900 border border-amber-500/40 rounded-2xl p-6 max-w-sm w-full space-y-3 shadow-2xl" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-amber-400 font-bold text-lg">{selectedAppt.client_name}</h3>
+                      <div className="space-y-2 text-sm">
+                        <p className="text-zinc-300">✂️ {services.find(s => String(s.id) === String(selectedAppt.service_id))?.name || 'Wizyta'}</p>
+                        <p className="text-zinc-300">🕐 {new Date(selectedAppt.start_time).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-zinc-300">📧 {selectedAppt.client_email || '—'}</p>
+                        <p className="text-zinc-300">📞 {selectedAppt.client_phone || '—'}</p>
+                      </div>
+                      <button onClick={() => setSelectedAppt(null)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-2 rounded-lg text-sm font-bold transition-colors mt-2">Zamknij</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid kalendarza */}
+                <div className="overflow-x-auto">
+                  <div style={{ minWidth: '700px' }}>
+                    {/* Nagłówek dni */}
+                    <div className="grid border-b border-zinc-800" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+                      <div className="p-2" />
+                      {Array.from({ length: 7 }, (_, i) => {
+                        const d = new Date(weekStart.getTime() + i * 86400000);
+                        const isToday = d.toDateString() === new Date().toDateString();
+                        return (
+                          <div key={i} className={`p-2 text-center border-l border-zinc-800 ${isToday ? 'bg-amber-500/10' : ''}`}>
+                            <p className="text-xs text-zinc-500 uppercase">{d.toLocaleDateString('pl-PL', { weekday: 'short' })}</p>
+                            <p className={`text-sm font-bold ${isToday ? 'text-amber-400' : 'text-zinc-300'}`}>{d.getDate()}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Wiersze godzin 8:00-18:00 */}
+                    {Array.from({ length: 21 }, (_, hi) => {
+                      const hour = Math.floor(hi / 2) + 8;
+                      const min = hi % 2 === 0 ? '00' : '30';
+                      const slotLabel = hi % 2 === 0 ? `${String(hour).padStart(2,'0')}:00` : '';
+                      const slotTime = `${String(hour).padStart(2,'0')}:${min}`;
+
+                      return (
+                        <div key={hi} className="grid border-b border-zinc-800/50" style={{ gridTemplateColumns: '52px repeat(7, 1fr)', minHeight: '36px' }}>
+                          <div className="px-1 py-0.5 text-right">
+                            <span className="text-xs text-zinc-600">{slotLabel}</span>
+                          </div>
+                          {Array.from({ length: 7 }, (_, di) => {
+                            const cellDate = new Date(weekStart.getTime() + di * 86400000);
+                            const cellAppts = calAppts.filter(a => {
+                              const at = new Date(a.start_time);
+                              return at.toDateString() === cellDate.toDateString() &&
+                                at.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) === slotTime;
+                            });
+                            const isToday = cellDate.toDateString() === new Date().toDateString();
+                            return (
+                              <div key={di} className={`border-l border-zinc-800/50 px-0.5 py-0.5 ${isToday ? 'bg-amber-500/5' : ''}`}>
+                                {cellAppts.map(a => (
+                                  <button key={a.id} onClick={() => setSelectedAppt(a)}
+                                    className="w-full text-left bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 rounded px-1.5 py-1 text-xs text-amber-200 font-semibold truncate transition-colors">
+                                    {a.client_name}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
