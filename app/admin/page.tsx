@@ -433,8 +433,20 @@ export default function AdminPage() {
         <div className="flex space-x-4 border-b border-zinc-800 pb-2 overflow-x-auto">
           {(['dashboard', 'calendar', 'appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`text-sm font-semibold pb-1 whitespace-nowrap transition-all ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
-              {tab === 'dashboard' ? '📊 Dashboard' : tab === 'calendar' ? '📆 Kalendarz' : tab === 'appointments' ? '📅 Rezerwacje' : tab === 'services' ? '✂️ Usługi' : tab === 'hours' ? '🕐 Godziny pracy' : '⚙️ Ustawienia'}
+              className={`text-sm font-semibold pb-1 transition-all text-center ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
+              {tab === 'dashboard' ? (
+                <span className="text-center leading-tight">📊<br /><span className="text-xs font-black tracking-wider">Dashboard</span></span>
+              ) : tab === 'calendar' ? (
+                <span className="text-center leading-tight">📆<br /><span className="text-xs font-black tracking-wider">Kalendarz</span></span>
+              ) : tab === 'appointments' ? (
+                <span className="text-center leading-tight">📅 <span className="font-black tracking-wider">SIŁA</span><br /><span className="text-xs font-normal text-zinc-500">Rezerwacje</span></span>
+              ) : tab === 'services' ? (
+                <span className="text-center leading-tight">✨ <span className="font-black tracking-wider">CZYSTOŚĆ</span><br /><span className="text-xs font-normal text-zinc-500">Usługi</span></span>
+              ) : tab === 'hours' ? (
+                <span className="text-center leading-tight">🕐<br /><span className="text-xs font-black tracking-wider">Godziny pracy</span></span>
+              ) : (
+                <span className="text-center leading-tight">⚙️ <span className="font-black tracking-wider">WŁADZA</span><br /><span className="text-xs font-normal text-zinc-500">Konfiguracja</span></span>
+              )}
             </button>
           ))}
         </div>
@@ -659,7 +671,7 @@ export default function AdminPage() {
         {activeTab === 'services' && (
           <div className="space-y-6">
             <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl">
-              <h2 className="text-lg font-bold text-amber-400 mb-4">➕ Dodaj usługę</h2>
+              <div className="mb-4"><p className="text-xs font-black tracking-widest text-amber-500 uppercase">✨ CZYSTOŚĆ</p><h2 className="text-lg font-bold text-amber-400">➕ Dodaj usługę</h2></div>
               <form onSubmit={handleAddService} className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input type="text" placeholder="Nazwa usługi" value={newServiceName} onChange={(e) => setNewServiceName(e.target.value)}
                   className="md:col-span-2 bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" required />
@@ -697,7 +709,7 @@ export default function AdminPage() {
         {/* GODZINY PRACY */}
         {activeTab === 'hours' && (
           <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
-            <h2 className="text-lg font-bold text-amber-400">🕐 Godziny pracy salonu</h2>
+            <div><p className="text-xs font-black tracking-widest text-amber-500 uppercase">🕐 RYTM</p><h2 className="text-lg font-bold text-amber-400">Godziny pracy salonu</h2></div>
             <p className="text-xs text-zinc-500">Ustaw godziny dla każdego dnia. Klienci zobaczą tylko dostępne terminy.</p>
             <div className="space-y-3">
               {hours.map((h) => (
@@ -737,7 +749,7 @@ export default function AdminPage() {
         {/* USTAWIENIA */}
         {activeTab === 'settings' && (
           <form onSubmit={handleSaveSettings} className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 max-w-xl space-y-4 shadow-2xl">
-            <h2 className="text-lg font-bold text-amber-400">⚙️ Konfiguracja Salonu</h2>
+            <div><p className="text-xs font-black tracking-widest text-amber-500 uppercase">⚙️ WŁADZA</p><h2 className="text-lg font-bold text-amber-400">Konfiguracja Salonu</h2></div>
             <div>
               <label className="block text-xs font-bold text-amber-300 uppercase mb-1">Nazwa Salonu</label>
               <input type="text" value={salonName} onChange={(e) => setSalonName(e.target.value)}
