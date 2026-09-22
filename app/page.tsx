@@ -36,6 +36,12 @@ export default function Home() {
             >
               Mam już konto — Zaloguj się
             </Link>
+            <Link
+              href="/salony"
+              className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-200"
+            >
+              🔍 Znajdź salon
+            </Link>
           </div>
         </div>
       </main>
