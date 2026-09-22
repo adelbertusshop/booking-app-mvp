@@ -25,6 +25,7 @@ export default function SalonyPage() {
       .from('salons')
       .select('id, salon_name, slug')
       .not('slug', 'is', null)
+      .eq('is_public', true)
       .order('salon_name', { ascending: true })
       .then(({ data }) => {
         setSalons((data as Salon[]) || []);
