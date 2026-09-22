@@ -41,7 +41,7 @@ export default function SalonyPage() {
       {/* Header */}
       <div className="border-b border-zinc-900 py-6 px-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-amber-400 font-black text-xl">BookingApp</Link>
+          <Link href="/" className="text-amber-400 font-black text-xl tracking-wider">LUMAR</Link>
           <Link href="/admin" className="text-xs text-zinc-400 hover:text-amber-400 transition-colors">
             Panel właściciela →
           </Link>
@@ -51,7 +51,7 @@ export default function SalonyPage() {
       <main className="max-w-4xl mx-auto px-4 py-12 space-y-8">
         <div className="text-center space-y-3">
           <h1 className="text-4xl font-black text-white">Znajdź salon</h1>
-          <p className="text-zinc-400">Zarezerwuj wizytę online w kilka sekund.</p>
+          <p className="text-zinc-400">Zarezerwuj wizytę online w kilka sekund.<br /><span className="text-xs text-zinc-600">System rezerwacji dla salonów</span></p>
         </div>
 
         {/* Wyszukiwarka */}
