@@ -88,6 +88,7 @@ export default function AdminPage() {
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'appointments' | 'services' | 'hours' | 'settings'>('dashboard');
   const [showRevenue, setShowRevenue] = useState<boolean>(false);
+  const [isPublic, setIsPublic] = useState<boolean>(false);
   const [statsToday, setStatsToday] = useState<Appointment[]>([]);
   const [statsMonthCount, setStatsMonthCount] = useState<number>(0);
   const [statsTopService, setStatsTopService] = useState<string>('—');
@@ -152,6 +153,7 @@ export default function AdminPage() {
       setSalonName(salon.salon_name || 'Mój Salon');
       setSalonSlug(salon.slug || '');
       setShowRevenue(salon.show_revenue || false);
+      setIsPublic(salon.is_public || false);
       setAdminEmail(salon.admin_email || currentUser.email || '');
       setWhatsappTemplate(salon.whatsapp_template || 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!');
       await fetchAppointments(salon.id);
@@ -356,7 +358,7 @@ export default function AdminPage() {
       setNewPassword('');
     }
     if (salonId) {
-      const { error } = await supabase.from('salons').update({ salon_name: salonName, admin_email: adminEmail, whatsapp_template: whatsappTemplate, show_revenue: showRevenue }).eq('id', salonId);
+      const { error } = await supabase.from('salons').update({ salon_name: salonName, admin_email: adminEmail, whatsapp_template: whatsappTemplate, show_revenue: showRevenue, is_public: isPublic }).eq('id', salonId);
       if (error) alert('Błąd zapisu: ' + error.message);
       else alert('✅ Ustawienia zapisane!');
     }
@@ -793,6 +795,22 @@ export default function AdminPage() {
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={showRevenue} onChange={(e) => setShowRevenue(e.target.checked)} className="w-4 h-4 accent-amber-500 cursor-pointer" />
                 <span className="text-xs text-zinc-300 cursor-pointer" onClick={() => setShowRevenue(!showRevenue)}>💰 Przychód (suma cen zarezerwowanych usług)</span>
+              </div>
+            </div>
+            <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-4 space-y-2">
+              <p className="text-xs font-bold text-amber-300 uppercase">🌐 Widoczność w katalogu LUMAR</p>
+              <div className="flex items-start gap-3 pt-1">
+                <input
+                  type="checkbox"
+                  id="is_public"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-amber-500 cursor-pointer flex-shrink-0"
+                />
+                <label htmlFor="is_public" className="text-xs text-zinc-300 cursor-pointer leading-relaxed">
+                  <span className="font-bold text-amber-200">Pokaż mój salon w katalogu LUMAR</span><br />
+                  <span className="text-zinc-500">Gdy aktywne — Twój salon pojawi się na stronie /salony. Klienci będą mogli Cię znaleźć przez katalog.</span>
+                </label>
               </div>
             </div>
             <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-3">
