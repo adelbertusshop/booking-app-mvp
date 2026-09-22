@@ -11,7 +11,7 @@ export default function Home() {
         <div className="max-w-2xl mx-auto space-y-8">
 
           <div className="inline-block bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full">
-            System rezerwacji dla salonów
+            LUMAR · System rezerwacji dla salonów
           </div>
 
           <h1 className="text-4xl md:text-6xl font-black text-white leading-tight">
@@ -78,7 +78,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-600">
-        © 2026 Booking App · Wszystkie prawa zastrzeżone
+        © 2026 LUMAR · Wszystkie prawa zastrzeżone
       </footer>
     </div>
   );
