@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import '@/app/globals.css'
 
 export const metadata: Metadata = {
-  title: 'BookingApp - System Rezerwacji',
-  description: 'Inteligentny system rezerwacji wizyt dla usługodawców',
+  title: "LUMAR",
+  description: "LUMAR — System rezerwacji dla salonów",
 }
 
 export const viewport: Viewport = {
