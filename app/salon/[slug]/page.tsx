@@ -221,7 +221,7 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
 
         <div className="pt-2 text-center border-t border-amber-500/10">
           <Link href="/" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
-            Chcesz taką aplikację dla swojego salonu? →
+            LUMAR · Chcesz taką aplikację dla swojego salonu? →
           </Link>
         </div>
       </div>
