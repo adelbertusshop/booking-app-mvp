@@ -352,9 +352,14 @@ export default function AdminPage() {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
-    if (newPassword.trim().length > 0) {
+    if (newPassword.trim().length >= 6) {
       const { error } = await supabase.auth.updateUser({ password: newPassword.trim() });
-      if (error) { alert('Błąd zmiany hasła: ' + error.message); setSavingSettings(false); return; }
+      if (error) {
+        alert('Błąd zmiany hasła: ' + error.message);
+        setSavingSettings(false);
+        return;
+      }
+      setNewPassword('');
       setNewPassword('');
     }
     if (salonId) {
@@ -767,6 +772,7 @@ export default function AdminPage() {
               <div className="relative">
                 <input type={showNewPassword ? 'text' : 'password'} placeholder="Zostaw puste jeśli nie zmieniasz"
                   value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
                   className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 pr-16 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
                 <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400 text-xs font-bold">
