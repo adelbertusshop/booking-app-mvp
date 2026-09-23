@@ -86,7 +86,7 @@ export default function AdminPage() {
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'appointments' | 'services' | 'hours' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'appointments' | 'services' | 'hours' | 'notifications' | 'settings'>('dashboard');
   const [showRevenue, setShowRevenue] = useState<boolean>(false);
   const [isPublic, setIsPublic] = useState<boolean>(false);
   const [statsToday, setStatsToday] = useState<Appointment[]>([]);
@@ -120,6 +120,8 @@ export default function AdminPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [whatsappTemplate, setWhatsappTemplate] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServiceDuration, setNewServiceDuration] = useState('60');
@@ -349,6 +351,23 @@ export default function AdminPage() {
     }
   };
 
+  const handleSaveEmail = async () => {
+    if (!salonId || !adminEmail.trim()) return;
+    setSavingEmail(true);
+    setEmailSaveStatus('idle');
+    const { error } = await supabase
+      .from('salons')
+      .update({ admin_email: adminEmail.trim() })
+      .eq('id', salonId);
+    if (error) {
+      setEmailSaveStatus('error');
+    } else {
+      setEmailSaveStatus('success');
+      setTimeout(() => setEmailSaveStatus('idle'), 4000);
+    }
+    setSavingEmail(false);
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
@@ -438,7 +457,7 @@ export default function AdminPage() {
         </div>
 
         <div className="flex space-x-4 border-b border-zinc-800 pb-2 overflow-x-auto">
-          {(['dashboard', 'calendar', 'appointments', 'services', 'hours', 'settings'] as const).map((tab) => (
+          {(['dashboard', 'calendar', 'appointments', 'services', 'hours', 'notifications', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`text-sm font-semibold pb-1 transition-all text-center ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
               {tab === 'dashboard' ? (
@@ -451,6 +470,8 @@ export default function AdminPage() {
                 <span className="text-center leading-tight">✨ <span className="font-black tracking-wider">CZYSTOŚĆ</span><br /><span className="text-xs font-normal text-zinc-500">Usługi</span></span>
               ) : tab === 'hours' ? (
                 <span className="text-center leading-tight">🕐<br /><span className="text-xs font-black tracking-wider">Godziny pracy</span></span>
+              ) : tab === 'notifications' ? (
+                <span className="text-center leading-tight">💡 <span className="font-black tracking-wider">ŚWIATŁO</span><br /><span className="text-xs font-normal text-zinc-500">Powiadomienia</span></span>
               ) : (
                 <span className="text-center leading-tight">⚙️ <span className="font-black tracking-wider">WŁADZA</span><br /><span className="text-xs font-normal text-zinc-500">Konfiguracja</span></span>
               )}
@@ -713,6 +734,74 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ŚWIATŁO - POWIADOMIENIA */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-4 max-w-xl">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl space-y-5">
+              <div>
+                <p className="text-xs font-black tracking-widest text-amber-500 uppercase">💡 ŚWIATŁO</p>
+                <h2 className="text-lg font-bold text-amber-400">Powiadomienia</h2>
+              </div>
+
+              {/* Email powiadomień */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-amber-300 uppercase">E-mail powiadomień</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={adminEmail}
+                    onChange={(e) => { setAdminEmail(e.target.value); setEmailSaveStatus('idle'); }}
+                    placeholder="adres@salonu.pl"
+                    className="flex-1 bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    onClick={handleSaveEmail}
+                    disabled={savingEmail}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {savingEmail ? '...' : 'Zmień adres'}
+                  </button>
+                </div>
+                {emailSaveStatus === 'success' && (
+                  <p className="text-xs text-green-400 font-semibold">✅ Adres e-mail zapisany. Nowe powiadomienia będą wysyłane na ten adres.</p>
+                )}
+                {emailSaveStatus === 'error' && (
+                  <p className="text-xs text-red-400 font-semibold">❌ Błąd zapisu. Spróbuj ponownie.</p>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-amber-300 uppercase">Status</label>
+                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
+                  <span className="text-green-400 text-lg">🟢</span>
+                  <span className="text-sm font-semibold text-green-400">Powiadomienia aktywne</span>
+                </div>
+              </div>
+
+              {/* Aktywne typy */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-amber-300 uppercase">Aktywne typy</label>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 space-y-2">
+                  {[
+                    { label: 'Nowa rezerwacja', desc: 'Email gdy klient zarezerwuje wizytę' },
+                    { label: 'Odwołanie rezerwacji', desc: 'Email gdy rezerwacja zostanie usunięta' },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-start gap-3">
+                      <input type="checkbox" checked disabled className="w-4 h-4 mt-0.5 accent-amber-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-amber-200">{item.label}</p>
+                        <p className="text-xs text-zinc-500">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-600">Więcej typów powiadomień dostępnych w planie PRO.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* GODZINY PRACY */}
         {activeTab === 'hours' && (
           <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
@@ -762,10 +851,8 @@ export default function AdminPage() {
               <input type="text" value={salonName} onChange={(e) => setSalonName(e.target.value)}
                 className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-amber-300 uppercase mb-1">E-mail Powiadomień</label>
-              <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)}
-                className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <p className="text-xs text-zinc-500">📧 Adres e-mail powiadomień zarządzasz w zakładce <span className="text-amber-400 font-bold">💡 ŚWIATŁO</span></p>
             </div>
             <div>
               <label className="block text-xs font-bold text-amber-300 uppercase mb-1">Nowe Hasło</label>
