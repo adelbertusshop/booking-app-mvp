@@ -416,7 +416,7 @@ export default function AdminPage() {
           </div>
         )}
         <div>
-          <label className="block text-xs font-bold text-amber-300 uppercase mb-1">E-mail</label>
+          <label className="block text-xs font-bold text-amber-300 uppercase mb-1">E-mail powiadomień</label>
           <input type="email" placeholder="admin@salon.pl" value={email} onChange={(e) => setEmail(e.target.value)}
             className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 text-amber-100 text-sm focus:outline-none focus:border-amber-400" required />
         </div>
