@@ -299,18 +299,22 @@ export default function AdminPage() {
   const handleDeleteAppointment = async (appt: Appointment) => {
     if (!confirm(`Usunąć rezerwację: ${appt.client_name}?`)) return;
     setDeletingId(appt.id);
-    await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', appt.id);
-    if (appt.client_email) {
-      const serviceName = getServiceName(appt.service_id);
-      const date = appt.start_time ? new Date(appt.start_time).toLocaleDateString('pl-PL') : '-';
-      const time = appt.start_time ? new Date(appt.start_time).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '-';
-      await fetch('/api/send-cancel-email', {
+    try {
+      // cancel-booking używa SERVICE_ROLE - omija RLS
+      const res = await fetch('/api/cancel-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: appt.client_email, clientName: appt.client_name, serviceName, date, time, salonName }),
-      }).catch(console.error);
+        body: JSON.stringify({ appointmentId: appt.id, email: appt.client_email || '' }),
+      });
+      if (res.ok) {
+        setAppointments((prev) => prev.filter((a) => a.id !== appt.id));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('Błąd usuwania: ' + (err.error || 'Spróbuj ponownie'));
+      }
+    } catch {
+      alert('Błąd połączenia. Spróbuj ponownie.');
     }
-    setAppointments((prev) => prev.filter((a) => a.id !== appt.id));
     setDeletingId(null);
   };
 
