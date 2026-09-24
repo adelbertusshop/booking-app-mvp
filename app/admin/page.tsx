@@ -747,7 +747,16 @@ export default function AdminPage() {
               </form>
             </div>
             <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-6 shadow-2xl">
-              <h2 className="text-lg font-bold text-amber-400 mb-4">📋 Twoje usługi ({services.length})</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-amber-400">📋 Twoje usługi</h2>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                  services.length >= 10
+                    ? 'text-red-400 border-red-500/40 bg-red-950/30'
+                    : services.length >= 8
+                    ? 'text-amber-400 border-amber-500/40 bg-amber-950/30'
+                    : 'text-zinc-400 border-zinc-700 bg-zinc-900'
+                }`}>{services.length}/10 FREE</span>
+              </div>
               {services.length === 0 ? <p className="text-zinc-500 text-sm text-center py-6">Brak usług.</p> : (
                 <div className="space-y-2">
                   {services.map((srv) => (
