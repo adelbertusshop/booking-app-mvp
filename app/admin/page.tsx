@@ -94,6 +94,7 @@ export default function AdminPage() {
   const [statsTopService, setStatsTopService] = useState<string>('—');
   const [statsRevenue, setStatsRevenue] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [monthReservationCount, setMonthReservationCount] = useState<number>(0);
   const [weekStart, setWeekStart] = useState<Date>(() => {
     const d = new Date();
     const day = d.getDay();
@@ -220,7 +221,9 @@ export default function AdminPage() {
       .gte('start_time', monthStart)
       .lte('start_time', monthEnd);
 
-    setStatsMonthCount((monthData || []).length);
+    const mCount = (monthData || []).length;
+    setStatsMonthCount(mCount);
+    setMonthReservationCount(mCount);
 
     // Najpopularniejsza usługa
     const withService = (monthData || []).filter((a: any) => a.service_id);
@@ -321,6 +324,10 @@ export default function AdminPage() {
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!salonId || !newServiceName.trim()) return;
+    if (services.length >= 10) {
+      alert('Osiągnięto limit 10 usług w planie FREE. Usuń istniejącą usługę, aby dodać nową.');
+      return;
+    }
     setAddingService(true);
     const { data, error } = await supabase.from('services')
       .insert([{ salon_id: salonId, name: newServiceName.trim(), duration_minutes: parseInt(newServiceDuration), price: newServicePrice ? parseFloat(newServicePrice) : null }])
@@ -490,6 +497,28 @@ export default function AdminPage() {
               <p className="text-amber-200 text-sm animate-pulse">Wczytywanie statystyk...</p>
             ) : (
               <>
+                {/* Baner limitu FREE */}
+                {monthReservationCount >= 45 && (
+                  <div className={`rounded-xl border px-5 py-4 flex items-start gap-3 ${
+                    monthReservationCount >= 50
+                      ? 'bg-red-950/40 border-red-500/50'
+                      : 'bg-amber-950/40 border-amber-500/50'
+                  }`}>
+                    <span className="text-xl flex-shrink-0">{monthReservationCount >= 50 ? '🔒' : '⚠️'}</span>
+                    <div>
+                      <p className={`text-sm font-bold ${monthReservationCount >= 50 ? 'text-red-400' : 'text-amber-400'}`}>
+                        {monthReservationCount >= 50
+                          ? 'Limit FREE został osiągnięty'
+                          : 'Zbliżasz się do limitu FREE'}
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Wykorzystano <strong>{monthReservationCount} z 50</strong> rezerwacji w tym miesiącu.
+                        {monthReservationCount >= 50 && ' Klienci nie mogą teraz rezerwować przez LUMAR.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Rezerwacje w tym miesiącu */}
                   <div className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-5">
