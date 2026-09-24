@@ -219,10 +219,15 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
           </form>
         )}
 
-        <div className="pt-2 text-center border-t border-amber-500/10">
-          <Link href="/" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+        <div className="pt-4 border-t border-amber-500/10 space-y-2 text-center">
+          <Link href="/" className="text-xs text-zinc-600 hover:text-amber-400 transition-colors block">
             LUMAR · Chcesz taką aplikację dla swojego salonu? →
           </Link>
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs text-zinc-700">
+            <a href="/regulamin" className="hover:text-zinc-500 transition-colors">Regulamin</a>
+            <a href="/polityka-prywatnosci" className="hover:text-zinc-500 transition-colors">Polityka prywatności</a>
+            <a href="/kontakt" className="hover:text-zinc-500 transition-colors">Kontakt</a>
+          </div>
         </div>
       </div>
     </div>
