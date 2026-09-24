@@ -115,6 +115,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
     }
 
+    // Sprawdź limit FREE (50 rezerwacji miesięcznie)
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const { count: monthCount } = await supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('salon_id', salonId)
+      .neq('status', 'cancelled')
+      .gte('start_time', monthStart)
+      .lte('start_time', monthEnd);
+
+    if ((monthCount || 0) >= 50) {
+      return NextResponse.json({
+        error: 'Salon osiągnął limit 50 rezerwacji w tym miesiącu (plan FREE). Skontaktuj się z właścicielem salonu.',
+        limitReached: true,
+      }, { status: 429 });
+    }
+
     const { data: appointment, error } = await supabase.from('appointments')
       .insert([{ salon_id: salonId, start_time: startIso, end_time: endIso, client_name: clientName, client_email: email, client_phone: phone, status: 'confirmed', service_id: serviceId || null }])
       .select().single();
