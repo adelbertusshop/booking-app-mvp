@@ -145,6 +145,14 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
   return (
     <div className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-zinc-950 border border-amber-500/30 rounded-2xl p-8 shadow-[0_0_30px_rgba(217,119,6,0.15)] space-y-6">
+        <div className="flex items-center justify-between mb-2">
+          <Link href="/salony" className="text-xs text-zinc-500 hover:text-amber-400 transition-colors flex items-center gap-1">
+            ← Katalog salonów
+          </Link>
+          <Link href="/" className="text-xs text-zinc-600 hover:text-amber-400 transition-colors">
+            LUMAR
+          </Link>
+        </div>
         <div className="text-center space-y-1">
           <h1 className="text-3xl font-bold text-amber-400">{salon?.salon_name}</h1>
           <p className="text-zinc-500 text-sm">Zarezerwuj wizytę online</p>
