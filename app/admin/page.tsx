@@ -436,6 +436,7 @@ export default function AdminPage() {
           <label className="block text-xs font-bold text-amber-300 uppercase mb-1">Hasło</label>
           <div className="relative">
             <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isRegistering ? 'new-password' : 'current-password'}
               className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-3 pr-16 text-amber-100 text-sm focus:outline-none focus:border-amber-400" required />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400 text-xs font-bold">
