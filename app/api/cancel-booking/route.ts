@@ -31,14 +31,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Pobierz admin_email z salonu
-    let adminEmail = 'wojciechjarosz41@gmail.com';
+    let adminEmail: string | null = null;
     if (appointment.salon_id) {
       const { data: salon } = await supabase
         .from('salons')
         .select('admin_email, salon_name')
         .eq('id', appointment.salon_id)
         .single();
-      if (salon?.admin_email) adminEmail = salon.admin_email;
+      if (salon?.admin_email) {
+        adminEmail = salon.admin_email;
+      } else {
+        console.error('[CANCEL EMAIL] Brak admin_email dla salon_id:', appointment.salon_id, '— pomijam wysyłkę do admina.');
+      }
+    } else {
+      console.error('[CANCEL EMAIL] Brak salon_id w rezerwacji ID:', appointmentId, '— pomijam wysyłkę do admina.');
     }
 
     const targetEmail = email || appointment.client_email;
@@ -60,17 +66,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Email do admina salonu
-    try {
-      await sendBookingConfirmation({
-        to: adminEmail,
-        clientName: appointment.client_name || 'Klient',
-        serviceName: '[ODWOŁANO WIZYTĘ]',
-        date: formattedDate,
-        startTime,
-      });
-    } catch (err) {
-      console.error('Błąd e-mail admin:', err);
+    // 4. Email do admina salonu — tylko jeśli mamy poprawny adres z bazy
+    if (adminEmail) {
+      try {
+        await sendBookingConfirmation({
+          to: adminEmail,
+          clientName: appointment.client_name || 'Klient',
+          serviceName: '[ODWOŁANO WIZYTĘ]',
+          date: formattedDate,
+          startTime,
+        });
+      } catch (err) {
+        console.error('Błąd e-mail admin:', err);
+      }
+    } else {
+      console.warn('[CANCEL EMAIL] Pominięto email do admina — brak adresu w bazie.');
     }
 
     return NextResponse.json({ success: true, message: 'Wizyta pomyślnie odwołana.' });
