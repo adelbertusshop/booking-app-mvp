@@ -82,7 +82,7 @@ export async function sendBookingConfirmation({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'powiadomienia@lumaria-app.pl',
       to: [to],
       subject,
       html,
