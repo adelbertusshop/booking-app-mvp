@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     // Email klient
     if (email && resend) {
       await resend.emails.send({
-        from: 'onboarding@resend.dev', to: [email],
+        from: 'powiadomienia@lumaria-app.pl', to: [email],
         subject: `✅ Potwierdzenie rezerwacji — ${salonName}`,
         html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${clientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${salonName}</strong> została potwierdzona.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;"><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr></table><p style="color:#6b7280;font-size:12px;">Do zobaczenia! 💇</p></div>`,
       }).catch(console.error);
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     const adminEmail = salon?.admin_email;
     if (adminEmail && resend) {
       await resend.emails.send({
-        from: 'onboarding@resend.dev', to: [adminEmail],
+        from: 'powiadomienia@lumaria-app.pl', to: [adminEmail],
         subject: `🔔 Nowa rezerwacja — ${salonName}`,
         html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><table style="width:100%;border-collapse:collapse;margin:16px 0;"><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Klient</td><td style="color:#fff;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${clientName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Email</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${email||'-'}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Telefon</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${phone||'-'}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr></table></div>`,
       }).catch(console.error);
