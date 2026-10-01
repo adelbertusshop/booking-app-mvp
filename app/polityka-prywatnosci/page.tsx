@@ -3,13 +3,9 @@ export default function PolitykaPrywatnosci() {
     <div className="min-h-screen bg-black text-zinc-300">
       <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
 
-        <div className="border border-amber-500/30 bg-amber-950/20 rounded-xl px-5 py-3">
-          <p className="text-xs text-amber-400 font-bold">⚠️ WERSJA ROBOCZA — do weryfikacji przed publicznym uruchomieniem</p>
-        </div>
-
         <div>
           <h1 className="text-3xl font-black text-amber-400">Polityka prywatności LUMAR</h1>
-          <p className="text-xs text-zinc-500 mt-1">Ostatnia aktualizacja: wersja robocza 2026</p>
+          <p className="text-xs text-zinc-500 mt-1">Ostatnia aktualizacja: październik 2026</p>
         </div>
 
         <section className="space-y-3">
@@ -32,7 +28,7 @@ export default function PolitykaPrywatnosci() {
 
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-white">3. Dane klientów salonów</h2>
-          <p className="text-sm leading-relaxed">Klienci salonów podają przy dokonywaniu rezerwacji: imię i nazwisko, adres e-mail, numer telefonu.</p>
+          <p className="text-sm leading-relaxed">Klienci salonów podają przy dokonywaniu rezerwacji: imię i nazwisko, adres e-mail, numer telefonu. System rejestruje również termin wizyty (datę i godzinę) oraz wybraną usługę.</p>
           <p className="text-sm leading-relaxed"><strong className="text-zinc-100">Administratorem</strong> tych danych jest właściciel salonu, który korzysta z LUMAR jako narzędzia technicznego do ich zbierania i przechowywania.</p>
           <p className="text-sm leading-relaxed"><strong className="text-zinc-100">LUMAR pełni rolę podmiotu przetwarzającego</strong> (procesora) w rozumieniu art. 28 RODO — przetwarza dane klientów salonów wyłącznie w imieniu i na polecenie właściciela salonu.</p>
           <p className="text-sm leading-relaxed">Dane klientów są przechowywane w bazie danych Supabase (region: EU) i nie są wykorzystywane przez operatora LUMAR do własnych celów marketingowych ani innych celów niezwiązanych ze świadczeniem usługi technicznej.</p>
@@ -48,11 +44,11 @@ export default function PolitykaPrywatnosci() {
             </div>
             <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-sm space-y-1">
               <p className="font-bold text-zinc-100">Vercel</p>
-              <p className="text-zinc-400">Hosting aplikacji. Może przetwarzać anonimowe dane techniczne (logi). <a href="https://vercel.com/legal/privacy-policy" className="text-amber-400 hover:underline" target="_blank" rel="noopener noreferrer">Polityka prywatności Vercel</a></p>
+              <p className="text-zinc-400">Hosting aplikacji. Vercel może przetwarzać dane techniczne związane z działaniem aplikacji, takie jak adres IP, nagłówki HTTP oraz informacje zawarte w logach żądań. Dane te są wykorzystywane w szczególności do zapewnienia bezpieczeństwa, stabilności i prawidłowego działania usługi. LUMAR nie wykorzystuje tych danych do tworzenia profili użytkowników ani do prowadzenia behawioralnego śledzenia użytkowników. <a href="https://vercel.com/legal/privacy-policy" className="text-amber-400 hover:underline" target="_blank" rel="noopener noreferrer">Polityka prywatności Vercel</a></p>
             </div>
             <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-sm space-y-1">
               <p className="font-bold text-zinc-100">Resend</p>
-              <p className="text-zinc-400">Wysyłka e-maili potwierdzających rezerwację. Do Resend przekazywane są: imię klienta, adres e-mail, szczegóły rezerwacji. <a href="https://resend.com/legal/privacy-policy" className="text-amber-400 hover:underline" target="_blank" rel="noopener noreferrer">Polityka prywatności Resend</a></p>
+              <p className="text-zinc-400">Wysyłka e-maili potwierdzających rezerwację i informujących o odwołaniu. Do Resend przekazywane są: imię klienta, adres e-mail, termin wizyty i nazwa usługi. Wiadomości wysyłane są z adresu powiadomienia@lumaria-app.pl. <a href="https://resend.com/legal/privacy-policy" className="text-amber-400 hover:underline" target="_blank" rel="noopener noreferrer">Polityka prywatności Resend</a></p>
             </div>
           </div>
         </section>
