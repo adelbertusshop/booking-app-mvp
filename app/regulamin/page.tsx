@@ -3,18 +3,14 @@ export default function RegulamiPage() {
     <div className="min-h-screen bg-black text-zinc-300">
       <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
 
-        <div className="border border-amber-500/30 bg-amber-950/20 rounded-xl px-5 py-3">
-          <p className="text-xs text-amber-400 font-bold">⚠️ WERSJA ROBOCZA — do weryfikacji przed publicznym uruchomieniem</p>
-        </div>
-
         <div>
           <h1 className="text-3xl font-black text-amber-400">Regulamin LUMAR</h1>
-          <p className="text-xs text-zinc-500 mt-1">Ostatnia aktualizacja: wersja robocza 2026</p>
+          <p className="text-xs text-zinc-500 mt-1">Ostatnia aktualizacja: październik 2026</p>
         </div>
 
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-white">§1. Postanowienia ogólne</h2>
-          <p className="text-sm leading-relaxed">1. LUMAR (dalej: „Serwis") to system rezerwacji wizyt online dla salonów kosmetycznych i usługowych, dostępny pod adresem booking-app-mvp.vercel.app.</p>
+          <p className="text-sm leading-relaxed">1. LUMAR (dalej: „Serwis") to system rezerwacji wizyt online dla salonów kosmetycznych i usługowych, dostępny pod adresem lumaria-app.pl.</p>
           <p className="text-sm leading-relaxed">2. Operatorem Serwisu jest Wojciech Jarosz, prowadzący działalność nierejestrowaną, kontakt: wojciechjarosz41@gmail.com.</p>
           <p className="text-sm leading-relaxed">3. Korzystanie z Serwisu oznacza akceptację niniejszego Regulaminu.</p>
         </section>
@@ -23,6 +19,7 @@ export default function RegulamiPage() {
           <h2 className="text-lg font-bold text-white">§2. Rodzaje użytkowników</h2>
           <p className="text-sm leading-relaxed">1. <strong className="text-zinc-100">Właściciel salonu</strong> — osoba rejestrująca salon w Serwisie i zarządzająca rezerwacjami przez panel administracyjny.</p>
           <p className="text-sm leading-relaxed">2. <strong className="text-zinc-100">Klient salonu</strong> — osoba dokonująca rezerwacji wizyty przez Serwis.</p>
+          <p className="text-sm leading-relaxed">3. Serwis udostępnia publiczny katalog salonów pod adresem lumaria-app.pl/salony oraz umożliwia właścicielom salonów wysyłanie przypomnień do klientów przez WhatsApp z wykorzystaniem danych z rezerwacji.</p>
         </section>
 
         <section className="space-y-3">
