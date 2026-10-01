@@ -109,10 +109,17 @@ export default function SalonyPage() {
         </p>
       </main>
 
-      <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-600">
-        <Link href="/" className="hover:text-zinc-400 transition-colors">← Wróć do strony głównej</Link>
-        {' · '}
-        <Link href="/admin" className="hover:text-zinc-400 transition-colors">Zarejestruj swój salon</Link>
+      <footer className="border-t border-zinc-900 py-8 px-4">
+        <div className="max-w-4xl mx-auto space-y-3 text-center">
+          <p className="text-amber-400 font-black tracking-wider text-sm">LUMAR</p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+            <a href="/regulamin" className="hover:text-amber-400 transition-colors">Regulamin</a>
+            <a href="/polityka-prywatnosci" className="hover:text-amber-400 transition-colors">Polityka prywatności</a>
+            <a href="/kontakt" className="hover:text-amber-400 transition-colors">Kontakt</a>
+            <a href="/admin" className="hover:text-amber-400 transition-colors">Zarejestruj swój salon</a>
+          </div>
+          <p className="text-xs text-zinc-700">© 2026 LUMAR · Wojciech Jarosz · wojciechjarosz41@gmail.com</p>
+        </div>
       </footer>
     </div>
   );
