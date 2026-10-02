@@ -88,7 +88,7 @@ export default function SalonyPage() {
                       {salon.salon_name}
                     </h2>
                     <p className="text-xs text-zinc-500">
-                      booking-app-mvp.vercel.app/salon/{salon.slug}
+                      lumaria-app.pl/salon/{salon.slug}
                     </p>
                   </div>
                   <span className="text-2xl">💇</span>
