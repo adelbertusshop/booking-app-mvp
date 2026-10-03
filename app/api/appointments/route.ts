@@ -14,20 +14,6 @@ function toMinutes(t: string): number {
   return h * 60 + m;
 }
 
-function generateSlots(openTime: string, closeTime: string, durationMinutes: number): string[] {
-  const slots: string[] = [];
-  const open = toMinutes(openTime);
-  const close = toMinutes(closeTime);
-  let current = open;
-  while (current + durationMinutes <= close) {
-    const h = Math.floor(current / 60).toString().padStart(2, '0');
-    const m = (current % 60).toString().padStart(2, '0');
-    slots.push(`${h}:${m}`);
-    current += 30;
-  }
-  return slots;
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
