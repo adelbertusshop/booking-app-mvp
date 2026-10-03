@@ -7,14 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[ąćęłńóśźż]/g, (c) => ({'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z'}[c] || c))
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 export async function GET() {
   try {
     const { data, error } = await supabase
