@@ -10,7 +10,7 @@ export default function RegulamiPage() {
 
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-white">§1. Postanowienia ogólne</h2>
-          <p className="text-sm leading-relaxed">1. LUMAR (dalej: „Serwis") to system rezerwacji wizyt online dla salonów kosmetycznych i usługowych, dostępny pod adresem lumaria-app.pl.</p>
+          <p className="text-sm leading-relaxed">1. LUMAR (dalej: &bdquo;Serwis") to system rezerwacji wizyt online dla salonów kosmetycznych i usługowych, dostępny pod adresem lumaria-app.pl.</p>
           <p className="text-sm leading-relaxed">2. Operatorem Serwisu jest Wojciech Jarosz, prowadzący działalność nierejestrowaną, kontakt: wojciechjarosz41@gmail.com.</p>
           <p className="text-sm leading-relaxed">3. Korzystanie z Serwisu oznacza akceptację niniejszego Regulaminu.</p>
         </section>
