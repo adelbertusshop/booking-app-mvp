@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ services: data || [] });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
   }
 }
