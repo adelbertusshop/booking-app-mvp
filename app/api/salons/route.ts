@@ -24,7 +24,7 @@ export async function GET() {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ salons: data || [] });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
   }
 }
