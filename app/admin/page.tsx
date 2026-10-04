@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type User } from '@supabase/supabase-js';
 
 function toSlug(name: string): string {
   return name
@@ -92,7 +92,7 @@ interface RevenueDataItem {
 }
 
 export default function AdminPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [email, setEmail] = useState('');
@@ -969,7 +969,7 @@ export default function AdminPage() {
             <div className="bg-zinc-900 border border-amber-500/20 rounded-lg p-3">
               <p className="text-xs text-amber-400 font-bold mb-1">🔗 Link dla klientów:</p>
               <p className="text-xs text-zinc-400 break-all">
-                {typeof window !== 'undefined' ? window.location.origin : 'https://booking-app-mvp.vercel.app'}/salon/{salonSlug || salonId || 'twoje-id'}
+                {typeof window !== 'undefined' ? window.location.origin : 'https://lumaria-app.pl'}/salon/{salonSlug || salonId || 'twoje-id'}
               </p>
             </div>
             <button type="submit" disabled={savingSettings}
