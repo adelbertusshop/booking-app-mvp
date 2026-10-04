@@ -88,7 +88,7 @@ interface MonthDataItem {
 
 interface RevenueDataItem {
   service_id: string | null;
-  services?: { price: number } | null;
+  services?: { price: number } | { price: number }[] | null;
 }
 
 export default function AdminPage() {
@@ -269,7 +269,9 @@ export default function AdminPage() {
         .not('service_id', 'is', null);
 
       const total = (revenueData as RevenueDataItem[] || []).reduce((sum: number, a: RevenueDataItem) => {
-        const price = a.services?.price;
+        const price = Array.isArray(a.services)
+          ? a.services[0]?.price
+          : a.services?.price;
         return price ? sum + Number(price) : sum;
       }, 0);
       setStatsRevenue(total);
