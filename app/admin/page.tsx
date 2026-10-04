@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 function toSlug(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[ąćęłńóśźż]/g, (c: string) => ({'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z'} as any)[c] || c)
+    .replace(/[ąćęłńóśźż]/g, (c: string) => ({'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z'} as Record<string, string>)[c] || c)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
@@ -76,6 +76,21 @@ const DEFAULT_HOURS: SalonHour[] = DAY_NAMES.map((_, i) => ({
   is_working: i < 5,
 }));
 
+
+interface AuthUser {
+  id: string;
+  email?: string;
+}
+
+interface MonthDataItem {
+  service_id: string | null;
+}
+
+interface RevenueDataItem {
+  service_id: string | null;
+  services?: { price: number } | null;
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -140,9 +155,10 @@ export default function AdminPage() {
       setLoadingAuth(false);
     });
     return () => authListener.subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadSalonData = async (currentUser: any) => {
+  const loadSalonData = async (currentUser: AuthUser) => {
     setLoadingData(true);
     let { data: salon } = await supabase.from('salons').select('*').eq('user_id', currentUser.id).single();
     if (!salon) {
@@ -226,10 +242,10 @@ export default function AdminPage() {
     setMonthReservationCount(mCount);
 
     // Najpopularniejsza usługa
-    const withService = (monthData || []).filter((a: any) => a.service_id);
+    const withService = (monthData as MonthDataItem[] || []).filter((a) => a.service_id);
     if (withService.length > 0) {
       const counts: Record<string, number> = {};
-      withService.forEach((a: any) => {
+      withService.forEach((a: MonthDataItem) => {
         counts[a.service_id] = (counts[a.service_id] || 0) + 1;
       });
       const topId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
@@ -250,7 +266,7 @@ export default function AdminPage() {
         .lte('start_time', monthEnd)
         .not('service_id', 'is', null);
 
-      const total = (revenueData || []).reduce((sum: number, a: any) => {
+      const total = (revenueData as RevenueDataItem[] || []).reduce((sum: number, a: RevenueDataItem) => {
         const price = a.services?.price;
         return price ? sum + Number(price) : sum;
       }, 0);
@@ -295,7 +311,7 @@ export default function AdminPage() {
     setSavingHours(false);
   };
 
-  const updateHour = (dayIndex: number, field: keyof SalonHour, value: any) => {
+  const updateHour = (dayIndex: number, field: keyof SalonHour, value: string | boolean) => {
     setHours((prev) => prev.map((h) => h.day_of_week === dayIndex ? { ...h, [field]: value } : h));
   };
 
