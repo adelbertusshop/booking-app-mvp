@@ -9,11 +9,6 @@ const supabase = createClient(
 );
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-function toMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -62,7 +57,7 @@ export async function GET(req: Request) {
       closeTime: hourData.close_time.substring(0, 5),
       isDayOff: false,
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
   }
 }
