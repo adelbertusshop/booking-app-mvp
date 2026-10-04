@@ -17,17 +17,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brak ID rezerwacji.' }, { status: 400 });
     }
 
-    // 1. Zmiana statusu wizyty
+    const providedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!providedEmail) {
+      return NextResponse.json({ error: 'Podaj adres e-mail rezerwacji.' }, { status: 400 });
+    }
+
+    // 1. Pobierz wizytę i zweryfikuj e-mail przed zmianą statusu.
+    // Dzięki temu samo zgadnięcie ID rezerwacji nie pozwala jej odwołać.
+    const { data: existingAppointment, error: lookupError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', appointmentId)
+      .single();
+
+    if (lookupError || !existingAppointment) {
+      console.error('[DATABASE ERROR]', lookupError);
+      return NextResponse.json({ error: 'Nie znaleziono wizyty w bazie.' }, { status: 404 });
+    }
+
+    const storedEmail = typeof existingAppointment.client_email === 'string'
+      ? existingAppointment.client_email.trim().toLowerCase()
+      : '';
+
+    if (!storedEmail || storedEmail !== providedEmail) {
+      return NextResponse.json({ error: 'Dane rezerwacji są nieprawidłowe.' }, { status: 403 });
+    }
+
+    if (existingAppointment.status === 'cancelled') {
+      return NextResponse.json({ error: 'Ta wizyta została już odwołana.' }, { status: 409 });
+    }
+
     const { data: appointment, error: updateError } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
       .eq('id', appointmentId)
+      .eq('client_email', existingAppointment.client_email)
       .select('*')
       .single();
 
     if (updateError || !appointment) {
       console.error('[DATABASE ERROR]', updateError);
-      return NextResponse.json({ error: 'Nie znaleziono wizyty w bazie.' }, { status: 404 });
+      return NextResponse.json({ error: 'Nie udało się odwołać wizyty.' }, { status: 409 });
     }
 
     // 2. Pobierz admin_email z salonu
