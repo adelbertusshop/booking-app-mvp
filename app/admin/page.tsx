@@ -242,10 +242,12 @@ export default function AdminPage() {
     setMonthReservationCount(mCount);
 
     // Najpopularniejsza usługa
-    const withService = (monthData as MonthDataItem[] || []).filter((a) => a.service_id);
+    const withService = (monthData as MonthDataItem[] || []).filter(
+      (a): a is MonthDataItem & { service_id: string } => Boolean(a.service_id)
+    );
     if (withService.length > 0) {
       const counts: Record<string, number> = {};
-      withService.forEach((a: MonthDataItem) => {
+      withService.forEach((a) => {
         counts[a.service_id] = (counts[a.service_id] || 0) + 1;
       });
       const topId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
@@ -405,7 +407,6 @@ export default function AdminPage() {
         setSavingSettings(false);
         return;
       }
-      setNewPassword('');
       setNewPassword('');
     }
     if (salonId) {
