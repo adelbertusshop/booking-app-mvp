@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient, type User } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 function toSlug(name: string): string {
   return name
@@ -79,7 +79,7 @@ const DEFAULT_HOURS: SalonHour[] = DAY_NAMES.map((_, i) => ({
 
 interface AuthUser {
   id: string;
-  email?: string;
+  email?: string | null;
 }
 
 interface MonthDataItem {
@@ -92,7 +92,7 @@ interface RevenueDataItem {
 }
 
 export default function AdminPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [email, setEmail] = useState('');
