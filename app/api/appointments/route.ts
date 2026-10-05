@@ -9,6 +9,15 @@ const supabase = createClient(
 );
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -148,10 +157,18 @@ export async function POST(req: Request) {
     }]).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+    const safeClientName = escapeHtml(clientName);
+    const safeEmail = escapeHtml(email);
+    const safePhone = escapeHtml(phone);
+    const safeServiceName = escapeHtml(serviceName);
+    const safeSalonName = escapeHtml(salonName);
+    const safeDate = escapeHtml(date);
+    const safeTime = escapeHtml(time);
+
     if (email && resend) {
       await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [email],
         subject: `✅ Potwierdzenie rezerwacji — ${salonName}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${clientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${salonName}</strong> została potwierdzona.</p><p style="color:#e5e7eb;">Usługa: <strong>${serviceName}</strong><br>Data: <strong>${date}</strong><br>Godzina: <strong>${time}</strong></p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${safeClientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${safeSalonName}</strong> została potwierdzona.</p><p style="color:#e5e7eb;">Usługa: <strong>${safeServiceName}</strong><br>Data: <strong>${safeDate}</strong><br>Godzina: <strong>${safeTime}</strong></p></div>`,
       }).catch(console.error);
     }
 
@@ -159,7 +176,7 @@ export async function POST(req: Request) {
     if (adminEmail && resend) {
       await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [adminEmail],
         subject: `🔔 Nowa rezerwacja — ${salonName}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><p style="color:#fff;">Klient: <strong>${clientName}</strong><br>Email: ${email || '-'}<br>Telefon: ${phone || '-'}<br>Usługa: ${serviceName}<br>Data: ${date}<br>Godzina: ${time}</p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><p style="color:#fff;">Klient: <strong>${safeClientName}</strong><br>Email: ${safeEmail || '-'}<br>Telefon: ${safePhone || '-'}<br>Usługa: ${safeServiceName}<br>Data: ${safeDate}<br>Godzina: ${safeTime}</p></div>`,
       }).catch(console.error);
     }
 
