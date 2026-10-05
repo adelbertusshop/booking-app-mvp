@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
 
 interface Salon {
   id: string;
@@ -21,16 +15,13 @@ export default function SalonyPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    supabase
-      .from('salons')
-      .select('id, salon_name, slug')
-      .not('slug', 'is', null)
-      .eq('is_public', true)
-      .order('salon_name', { ascending: true })
-      .then(({ data }) => {
-        setSalons((data as Salon[]) || []);
+    fetch('/api/salons')
+      .then((res) => res.json())
+      .then((data) => {
+        setSalons((data.salons as Salon[]) || []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const filtered = salons.filter(s =>
