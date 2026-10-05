@@ -8,18 +8,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { appointmentId, email } = body;
 
-    if (!appointmentId) {
-      return NextResponse.json({ error: 'Brak ID rezerwacji.' }, { status: 400 });
+    if (typeof appointmentId !== 'string' || !UUID_RE.test(appointmentId)) {
+      return NextResponse.json({ error: 'Nieprawidłowe ID rezerwacji.' }, { status: 400 });
     }
 
     const providedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    if (!providedEmail) {
-      return NextResponse.json({ error: 'Podaj adres e-mail rezerwacji.' }, { status: 400 });
+    if (!providedEmail || providedEmail.length > 254 || !EMAIL_RE.test(providedEmail)) {
+      return NextResponse.json({ error: 'Podaj prawidłowy adres e-mail rezerwacji.' }, { status: 400 });
     }
 
     // 1. Pobierz wizytę i zweryfikuj e-mail przed zmianą statusu.
@@ -47,17 +50,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ta wizyta została już odwołana.' }, { status: 409 });
     }
 
+    // Atomowa część anulowania: drugie równoczesne żądanie nie może ponownie
+    // zmienić już anulowanej wizyty ani wysłać kolejnego potwierdzenia.
     const { data: appointment, error: updateError } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
       .eq('id', appointmentId)
       .eq('client_email', existingAppointment.client_email)
+      .neq('status', 'cancelled')
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (updateError || !appointment) {
+    if (updateError) {
       console.error('[DATABASE ERROR]', updateError);
       return NextResponse.json({ error: 'Nie udało się odwołać wizyty.' }, { status: 409 });
+    }
+
+    if (!appointment) {
+      return NextResponse.json({ error: 'Ta wizyta została już odwołana lub nie jest już dostępna.' }, { status: 409 });
     }
 
     // 2. Pobierz admin_email z salonu
@@ -77,7 +87,7 @@ export async function POST(request: NextRequest) {
       console.error('[CANCEL EMAIL] Brak salon_id w rezerwacji ID:', appointmentId, '— pomijam wysyłkę do admina.');
     }
 
-    const targetEmail = email || appointment.client_email;
+    const targetEmail = appointment.client_email;
     const formattedDate = appointment.start_time ? appointment.start_time.split('T')[0] : 'Brak daty';
     const startTime = appointment.start_time ? appointment.start_time.split('T')[1]?.substring(0, 5) || '' : '';
 
