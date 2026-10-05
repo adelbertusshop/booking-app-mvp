@@ -7,12 +7,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data, error } = await supabase
+    const url = new URL(request.url);
+    const slug = url.searchParams.get('slug');
+
+    let query = supabase
       .from('salons')
       .select('id, salon_name, slug')
+      .eq('is_public', true)
       .order('salon_name', { ascending: true });
+
+    if (slug) query = query.eq('slug', slug).limit(1);
+
+    const { data, error } = await query;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ salons: data || [] });
