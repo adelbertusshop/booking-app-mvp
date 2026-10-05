@@ -14,37 +14,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
-
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
 
-    // Dzień tygodnia (0=Pon w naszym systemie, JS: 0=Niedz)
     const dateObj = new Date(date + 'T12:00:00');
-    const jsDow = dateObj.getDay(); // 0=Niedz, 1=Pon...6=Sob
-    const ourDow = jsDow === 0 ? 6 : jsDow - 1; // 0=Pon...6=Niedz
+    const jsDow = dateObj.getDay();
+    const ourDow = jsDow === 0 ? 6 : jsDow - 1;
 
-    // Pobierz godziny pracy dla tego dnia
     const { data: hourData } = await supabase
-      .from('salon_hours')
-      .select('*')
-      .eq('salon_id', salonId)
-      .eq('day_of_week', ourDow)
-      .single();
-
-    // Jeśli dzień wolny lub brak godzin — zwróć puste sloty
+      .from('salon_hours').select('*').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
     if (!hourData || !hourData.is_working) {
       return NextResponse.json({ bookedTimes: [], allSlots: [], isDayOff: true });
     }
 
-    // Pobierz zajęte terminy
     const dayStart = `${date}T00:00:00`;
     const dayEnd = `${date}T23:59:59`;
     const { data: booked } = await supabase
-      .from('appointments')
-      .select('start_time, end_time')
-      .eq('salon_id', salonId)
-      .neq('status', 'cancelled')
-      .gte('start_time', dayStart)
-      .lte('start_time', dayEnd);
+      .from('appointments').select('start_time, end_time').eq('salon_id', salonId)
+      .neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
 
     const bookedTimes = (booked || []).map((a) => ({
       start: a.start_time?.split('T')[1]?.substring(0, 5) || '',
@@ -69,26 +55,70 @@ export async function POST(req: Request) {
 
     if (!salonId) return NextResponse.json({ error: 'Brak salonId.' }, { status: 400 });
     if (!date || !time) return NextResponse.json({ error: 'Brak daty lub godziny.' }, { status: 400 });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+      return NextResponse.json({ error: 'Nieprawidłowy format daty lub godziny.' }, { status: 400 });
+    }
+    if (clientName !== undefined && (typeof clientName !== 'string' || clientName.trim().length < 2 || clientName.length > 120)) {
+      return NextResponse.json({ error: 'Nieprawidłowe imię i nazwisko.' }, { status: 400 });
+    }
+    if (email !== undefined && email !== null && (typeof email !== 'string' || email.length > 254)) {
+      return NextResponse.json({ error: 'Nieprawidłowy adres e-mail.' }, { status: 400 });
+    }
+    if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 40)) {
+      return NextResponse.json({ error: 'Nieprawidłowy numer telefonu.' }, { status: 400 });
+    }
+
+    const startDateObj = new Date(`${date}T${time}:00`);
+    if (Number.isNaN(startDateObj.getTime())) {
+      return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
+    }
+    if (startDateObj.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Nie można zarezerwować terminu w przeszłości.' }, { status: 400 });
+    }
 
     let durationMinutes = 60;
     let serviceName = 'Wizyta';
     let salonName = 'Salon';
 
-    const { data: salon } = await supabase.from('salons').select('salon_name, admin_email').eq('id', salonId).single();
-    if (salon?.salon_name) salonName = salon.salon_name;
+    const { data: salon } = await supabase
+      .from('salons').select('salon_name, admin_email').eq('id', salonId).single();
+    if (!salon) return NextResponse.json({ error: 'Nie znaleziono salonu.' }, { status: 404 });
+    if (salon.salon_name) salonName = salon.salon_name;
 
     if (serviceId) {
-      const { data: svc } = await supabase.from('services').select('duration_minutes, name').eq('id', serviceId).single();
-      if (svc?.duration_minutes) durationMinutes = svc.duration_minutes;
-      if (svc?.name) serviceName = svc.name;
+      const { data: svc } = await supabase
+        .from('services').select('duration_minutes, name').eq('id', serviceId).eq('salon_id', salonId).single();
+      if (!svc) return NextResponse.json({ error: 'Wybrana usługa nie należy do tego salonu.' }, { status: 400 });
+      if (!Number.isInteger(svc.duration_minutes) || svc.duration_minutes <= 0 || svc.duration_minutes > 480) {
+        return NextResponse.json({ error: 'Nieprawidłowy czas trwania usługi.' }, { status: 400 });
+      }
+      durationMinutes = svc.duration_minutes;
+      if (svc.name) serviceName = svc.name;
     }
 
-    const startDateObj = new Date(`${date}T${time}:00`);
+    const jsDow = startDateObj.getDay();
+    const ourDow = jsDow === 0 ? 6 : jsDow - 1;
+    const { data: hourData } = await supabase
+      .from('salon_hours').select('open_time, close_time, is_working')
+      .eq('salon_id', salonId).eq('day_of_week', ourDow).single();
+    if (!hourData || !hourData.is_working) {
+      return NextResponse.json({ error: 'Salon jest zamknięty w wybranym dniu.' }, { status: 400 });
+    }
+
+    const [openHour, openMinute] = String(hourData.open_time).slice(0, 5).split(':').map(Number);
+    const [closeHour, closeMinute] = String(hourData.close_time).slice(0, 5).split(':').map(Number);
+    const requestedMinutes = startDateObj.getHours() * 60 + startDateObj.getMinutes();
+    const closeMinutes = closeHour * 60 + closeMinute;
+    const openMinutes = openHour * 60 + openMinute;
     const endDateObj = new Date(startDateObj.getTime() + durationMinutes * 60 * 1000);
+    const endMinutes = requestedMinutes + durationMinutes;
+    if (requestedMinutes < openMinutes || endMinutes > closeMinutes) {
+      return NextResponse.json({ error: 'Wybrany termin wykracza poza godziny pracy salonu.' }, { status: 400 });
+    }
+
     const startIso = startDateObj.toISOString();
     const endIso = endDateObj.toISOString();
 
-    // Sprawdź kolizję
     const { data: conflict } = await supabase.from('appointments').select('id')
       .eq('salon_id', salonId).neq('status', 'cancelled')
       .lt('start_time', endIso).gt('end_time', startIso).limit(1);
@@ -96,18 +126,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
     }
 
-    // Sprawdź limit FREE (50 rezerwacji miesięcznie)
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-    const { count: monthCount } = await supabase
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-      .eq('salon_id', salonId)
-      .neq('status', 'cancelled')
-      .gte('start_time', monthStart)
-      .lte('start_time', monthEnd);
-
+    const { count: monthCount } = await supabase.from('appointments')
+      .select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled')
+      .gte('start_time', monthStart).lte('start_time', monthEnd);
     if ((monthCount || 0) >= 50) {
       return NextResponse.json({
         error: 'Salon osiągnął limit 50 rezerwacji w tym miesiącu (plan FREE). Skontaktuj się z właścicielem salonu.',
@@ -115,27 +139,27 @@ export async function POST(req: Request) {
       }, { status: 429 });
     }
 
-    const { data: appointment, error } = await supabase.from('appointments')
-      .insert([{ salon_id: salonId, start_time: startIso, end_time: endIso, client_name: clientName, client_email: email, client_phone: phone, status: 'confirmed', service_id: serviceId || null }])
-      .select().single();
+    const { data: appointment, error } = await supabase.from('appointments').insert([{
+      salon_id: salonId, start_time: startIso, end_time: endIso,
+      client_name: typeof clientName === 'string' ? clientName.trim() : clientName,
+      client_email: typeof email === 'string' ? email.trim().toLowerCase() : email,
+      client_phone: typeof phone === 'string' ? phone.trim() : phone,
+      status: 'confirmed', service_id: serviceId || null,
+    }]).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    // Email klient
     if (email && resend) {
-      await resend.emails.send({
-        from: 'powiadomienia@lumaria-app.pl', to: [email],
+      await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [email],
         subject: `✅ Potwierdzenie rezerwacji — ${salonName}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${clientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${salonName}</strong> została potwierdzona.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;"><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr></table><p style="color:#6b7280;font-size:12px;">Do zobaczenia! 💇</p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${clientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${salonName}</strong> została potwierdzona.</p><p style="color:#e5e7eb;">Usługa: <strong>${serviceName}</strong><br>Data: <strong>${date}</strong><br>Godzina: <strong>${time}</strong></p></div>`,
       }).catch(console.error);
     }
 
-    // Email admin
-    const adminEmail = salon?.admin_email;
+    const adminEmail = salon.admin_email;
     if (adminEmail && resend) {
-      await resend.emails.send({
-        from: 'powiadomienia@lumaria-app.pl', to: [adminEmail],
+      await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [adminEmail],
         subject: `🔔 Nowa rezerwacja — ${salonName}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><table style="width:100%;border-collapse:collapse;margin:16px 0;"><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Klient</td><td style="color:#fff;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${clientName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Email</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${email||'-'}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Telefon</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${phone||'-'}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Usługa</td><td style="color:#f3f4f6;padding:8px 0;border-bottom:1px solid #333;">${serviceName}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;border-bottom:1px solid #333;">Data</td><td style="color:#f3f4f6;font-weight:bold;padding:8px 0;border-bottom:1px solid #333;">${date}</td></tr><tr><td style="color:#9ca3af;padding:8px 0;">Godzina</td><td style="color:#f59e0b;font-weight:bold;font-size:18px;padding:8px 0;">${time}</td></tr></table></div>`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><p style="color:#fff;">Klient: <strong>${clientName}</strong><br>Email: ${email || '-'}<br>Telefon: ${phone || '-'}<br>Usługa: ${serviceName}<br>Data: ${date}<br>Godzina: ${time}</p></div>`,
       }).catch(console.error);
     }
 
