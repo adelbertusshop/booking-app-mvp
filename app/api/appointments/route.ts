@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     if (clientName !== undefined && (typeof clientName !== 'string' || clientName.trim().length < 2 || clientName.length > 120)) {
       return NextResponse.json({ error: 'Nieprawidłowe imię i nazwisko.' }, { status: 400 });
     }
-    if (email !== undefined && email !== null && (typeof email !== 'string' || email.length > 254)) {
+    if (typeof email !== 'string' || email.trim().length === 0 || email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
       return NextResponse.json({ error: 'Nieprawidłowy adres e-mail.' }, { status: 400 });
     }
     if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 40)) {
@@ -90,8 +90,9 @@ export async function POST(req: Request) {
     let salonName = 'Salon';
 
     const { data: salon } = await supabase
-      .from('salons').select('salon_name, admin_email').eq('id', salonId).single();
+      .from('salons').select('salon_name, admin_email, is_public').eq('id', salonId).single();
     if (!salon) return NextResponse.json({ error: 'Nie znaleziono salonu.' }, { status: 404 });
+    if (!salon.is_public) return NextResponse.json({ error: 'Ten salon nie przyjmuje obecnie rezerwacji online.' }, { status: 403 });
     if (salon.salon_name) salonName = salon.salon_name;
 
     if (serviceId) {
@@ -135,9 +136,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
     }
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    const targetYear = startDateObj.getFullYear();
+    const targetMonth = startDateObj.getMonth();
+    const monthStart = new Date(targetYear, targetMonth, 1).toISOString();
+    const monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59).toISOString();
     const { count: monthCount } = await supabase.from('appointments')
       .select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled')
       .gte('start_time', monthStart).lte('start_time', monthEnd);
