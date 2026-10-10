@@ -39,15 +39,15 @@ export async function sendBookingConfirmation({
 
   const isCancel = type === 'cancellation' || serviceName.includes('ANULOWAN') || serviceName.includes('ODWOŁAN');
 
-  const subject = isCancel
-    ? `❌ Wizyta odwołana — ${safeSalonName}`
-    : `✅ Potwierdzenie rezerwacji — ${safeSalonName}`;
-
   const safeClientName = escapeHtml(clientName);
   const safeServiceName = escapeHtml(serviceName.replace('[ANULOWANO WIZYTĘ]', '').replace('[ODWOŁANO WIZYTĘ]', '').trim());
   const safeDate = escapeHtml(date);
   const safeStartTime = escapeHtml(startTime);
   const safeSalonName = escapeHtml(salonName);
+
+  const subject = isCancel
+    ? `❌ Wizyta odwołana — ${salonName}`
+    : `✅ Potwierdzenie rezerwacji — ${salonName}`;
 
   const html = isCancel
     ? `
