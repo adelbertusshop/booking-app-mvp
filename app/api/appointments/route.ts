@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -21,6 +21,18 @@ export async function GET(req: Request) {
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id, is_public')
+      .eq('id', salonId)
+      .maybeSingle();
+    if (salonError) {
+      console.error('[APPOINTMENT AVAILABILITY SALON ERROR]', salonError);
+      return NextResponse.json({ error: 'Nie udało się pobrać dostępności.' }, { status: 500 });
+    }
+    if (!salon || !salon.is_public) {
+      return NextResponse.json({ error: 'Ten salon nie przyjmuje obecnie rezerwacji online.' }, { status: 404 });
+    }
     const dateObj = new Date(date + 'T12:00:00');
     const jsDow = dateObj.getDay();
     const ourDow = jsDow === 0 ? 6 : jsDow - 1;
@@ -86,7 +98,8 @@ export async function POST(req: Request) {
     }]).select().single();
     if (error) {
       if (error.code === '23P01') return NextResponse.json({ error: 'Ten termin został właśnie zajęty. Wybierz inny termin.' }, { status: 409 });
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('[APPOINTMENT INSERT ERROR]', error);
+      return NextResponse.json({ error: 'Nie udało się zapisać rezerwacji. Spróbuj ponownie.' }, { status: 500 });
     }
 
     const safeClientName = escapeHtml(clientName), safeEmail = escapeHtml(email), safePhone = escapeHtml(phone), safeServiceName = escapeHtml(serviceName), safeSalonName = escapeHtml(salonName), safeDate = escapeHtml(date), safeTime = escapeHtml(time);
@@ -94,5 +107,5 @@ export async function POST(req: Request) {
     const adminEmail = salon.admin_email;
     if (adminEmail && resend) await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [adminEmail], subject: `🔔 Nowa rezerwacja — ${salonName}`, html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><p style="color:#fff;">Klient: <strong>${safeClientName}</strong><br>Email: ${safeEmail || '-'}<br>Telefon: ${safePhone || '-'}<br>Usługa: ${safeServiceName}<br>Data: ${safeDate}<br>Godzina: ${safeTime}</p></div>` }).catch(console.error);
     return NextResponse.json({ success: true, data: appointment });
-  } catch (err) { return NextResponse.json({ error: err instanceof Error ? err.message : 'Błąd.' }, { status: 500 }); }
+  } catch (err) { console.error('[APPOINTMENT API ERROR]', err); return NextResponse.json({ error: 'Wystąpił błąd serwera. Spróbuj ponownie.' }, { status: 500 }); }
 }

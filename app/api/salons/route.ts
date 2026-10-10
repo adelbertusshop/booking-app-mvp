@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
 export async function GET(request: Request) {
@@ -22,7 +22,10 @@ export async function GET(request: Request) {
 
     const { data, error } = await query;
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error('[SALONS API ERROR]', error);
+      return NextResponse.json({ error: 'Nie udało się pobrać listy salonów.' }, { status: 500 });
+    }
     return NextResponse.json({ salons: data || [] });
   } catch {
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });

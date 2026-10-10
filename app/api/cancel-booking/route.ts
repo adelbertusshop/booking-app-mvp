@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: 'Wizyta pomyślnie odwołana.' });
   } catch (error: unknown) {
     console.error('[API CANCEL CRASH]:', error);
-    const msg = error instanceof Error ? error.message : 'Błąd serwera.';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Wystąpił błąd serwera. Spróbuj ponownie.' }, { status: 500 });
   }
 }
