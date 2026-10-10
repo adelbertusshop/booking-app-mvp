@@ -10,6 +10,15 @@ interface EmailParams {
   salonName?: string;
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function sendBookingConfirmation({
   to,
   clientName,
@@ -31,27 +40,33 @@ export async function sendBookingConfirmation({
   const isCancel = type === 'cancellation' || serviceName.includes('ANULOWAN') || serviceName.includes('ODWOŁAN');
 
   const subject = isCancel
-    ? `❌ Wizyta odwołana — ${salonName}`
-    : `✅ Potwierdzenie rezerwacji — ${salonName}`;
+    ? `❌ Wizyta odwołana — ${safeSalonName}`
+    : `✅ Potwierdzenie rezerwacji — ${safeSalonName}`;
+
+  const safeClientName = escapeHtml(clientName);
+  const safeServiceName = escapeHtml(serviceName.replace('[ANULOWANO WIZYTĘ]', '').replace('[ODWOŁANO WIZYTĘ]', '').trim());
+  const safeDate = escapeHtml(date);
+  const safeStartTime = escapeHtml(startTime);
+  const safeSalonName = escapeHtml(salonName);
 
   const html = isCancel
     ? `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #1a1a1a; padding: 24px; border-radius: 12px;">
         <h2 style="color: #ef4444; margin-top: 0;">Wizyta odwołana ❌</h2>
-        <p style="color: #e5e7eb;">Witaj <strong style="color: #fff;">${clientName}</strong>,</p>
-        <p style="color: #e5e7eb;">Twoja wizyta w salonie <strong style="color: #f59e0b;">${salonName}</strong> została odwołana.</p>
+        <p style="color: #e5e7eb;">Witaj <strong style="color: #fff;">${safeClientName}</strong>,</p>
+        <p style="color: #e5e7eb;">Twoja wizyta w salonie <strong style="color: #f59e0b;">${safeSalonName}</strong> została odwołana.</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr>
             <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Usługa</td>
-            <td style="color: #f3f4f6; padding: 8px 0; border-bottom: 1px solid #333;">${serviceName.replace('[ANULOWANO WIZYTĘ]','').replace('[ODWOŁANO WIZYTĘ]','').trim()}</td>
+            <td style="color: #f3f4f6; padding: 8px 0; border-bottom: 1px solid #333;">${safeServiceName}</td>
           </tr>
           <tr>
             <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Data</td>
-            <td style="color: #f3f4f6; padding: 8px 0; border-bottom: 1px solid #333;">${date}</td>
+            <td style="color: #f3f4f6; padding: 8px 0; border-bottom: 1px solid #333;">${safeDate}</td>
           </tr>
           <tr>
             <td style="color: #9ca3af; padding: 8px 0;">Godzina</td>
-            <td style="color: #f3f4f6; padding: 8px 0;">${startTime}</td>
+            <td style="color: #f3f4f6; padding: 8px 0;">${safeStartTime}</td>
           </tr>
         </table>
         <p style="color: #6b7280; font-size: 12px;">W razie pytań skontaktuj się z salonem.</p>
@@ -60,20 +75,20 @@ export async function sendBookingConfirmation({
     : `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #1a1a1a; padding: 24px; border-radius: 12px;">
         <h2 style="color: #f59e0b; margin-top: 0;">Rezerwacja potwierdzona ✅</h2>
-        <p style="color: #e5e7eb;">Witaj <strong style="color: #fff;">${clientName}</strong>,</p>
-        <p style="color: #e5e7eb;">Twoja wizyta w salonie <strong style="color: #f59e0b;">${salonName}</strong> została potwierdzona.</p>
+        <p style="color: #e5e7eb;">Witaj <strong style="color: #fff;">${safeClientName}</strong>,</p>
+        <p style="color: #e5e7eb;">Twoja wizyta w salonie <strong style="color: #f59e0b;">${safeSalonName}</strong> została potwierdzona.</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr>
             <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Usługa</td>
-            <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${serviceName}</td>
+            <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${safeServiceName}</td>
           </tr>
           <tr>
             <td style="color: #9ca3af; padding: 8px 0; border-bottom: 1px solid #333;">Data</td>
-            <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${date}</td>
+            <td style="color: #f3f4f6; font-weight: bold; padding: 8px 0; border-bottom: 1px solid #333;">${safeDate}</td>
           </tr>
           <tr>
             <td style="color: #9ca3af; padding: 8px 0;">Godzina</td>
-            <td style="color: #f59e0b; font-weight: bold; font-size: 18px; padding: 8px 0;">${startTime}</td>
+            <td style="color: #f59e0b; font-weight: bold; font-size: 18px; padding: 8px 0;">${safeStartTime}</td>
           </tr>
         </table>
         <p style="color: #6b7280; font-size: 12px;">Do zobaczenia! 💇</p>
