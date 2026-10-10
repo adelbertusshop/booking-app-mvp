@@ -21,6 +21,18 @@ export async function GET(req: Request) {
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id, is_public')
+      .eq('id', salonId)
+      .maybeSingle();
+    if (salonError) {
+      console.error('[APPOINTMENT AVAILABILITY SALON ERROR]', salonError);
+      return NextResponse.json({ error: 'Nie udało się pobrać dostępności.' }, { status: 500 });
+    }
+    if (!salon || !salon.is_public) {
+      return NextResponse.json({ error: 'Ten salon nie przyjmuje obecnie rezerwacji online.' }, { status: 404 });
+    }
     const dateObj = new Date(date + 'T12:00:00');
     const jsDow = dateObj.getDay();
     const ourDow = jsDow === 0 ? 6 : jsDow - 1;
