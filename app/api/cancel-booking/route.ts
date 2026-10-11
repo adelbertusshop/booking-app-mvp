@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
@@ -16,7 +15,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { appointmentId, email } = body;
 
-    if (typeof appointmentId !== 'string' || !UUID_RE.test(appointmentId)) {
+    // Kolumna appointments.id jest liczbowa (smallint), a nie UUID.
+    // Akceptujemy liczbę JSON lub tekst zawierający wyłącznie cyfry.
+    const parsedAppointmentId =
+      typeof appointmentId === 'number'
+        ? appointmentId
+        : typeof appointmentId === 'string' && /^\d+$/.test(appointmentId)
+          ? Number(appointmentId)
+          : Number.NaN;
+
+    if (!Number.isSafeInteger(parsedAppointmentId) || parsedAppointmentId < 1 || parsedAppointmentId > 32767) {
       return NextResponse.json({ error: 'Nieprawidłowe ID rezerwacji.' }, { status: 400 });
     }
 
@@ -30,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: existingAppointment, error: lookupError } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', appointmentId)
+      .eq('id', parsedAppointmentId)
       .single();
 
     if (lookupError || !existingAppointment) {
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { data: appointment, error: updateError } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
-      .eq('id', appointmentId)
+      .eq('id', parsedAppointmentId)
       .eq('client_email', existingAppointment.client_email)
       .neq('status', 'cancelled')
       .select('*')
