@@ -147,7 +147,6 @@ export async function POST(req: Request) {
     const monthStart = warsawDateTimeToUtc(monthStartDate, '00:00');
     const monthEnd = warsawDateTimeToUtc(nextMonthDate, '00:00');
     if (!monthStart || !monthEnd) return NextResponse.json({ error: 'Nie udało się ustalić granic miesiąca.' }, { status: 500 });
-    const monthStart = new Date(targetYear, targetMonth, 1).toISOString(), monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59).toISOString();
     const { count: monthCount, error: monthCountError } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart.toISOString()).lt('start_time', monthEnd.toISOString());
     if (monthCountError || monthCount === null) {
       console.error('[APPOINTMENT MONTHLY LIMIT CHECK ERROR]', monthCountError);
