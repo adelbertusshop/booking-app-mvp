@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
@@ -16,7 +15,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { appointmentId, email } = body;
 
-    if (typeof appointmentId !== 'string' || !UUID_RE.test(appointmentId)) {
+    // W tabeli appointments kolumna id ma typ smallint (identity), a nie UUID.
+    // Akceptujemy liczbę JSON oraz cyfrowy tekst, ale wyłącznie poprawne dodatnie ID.
+    const parsedAppointmentId =
+      typeof appointmentId === 'number'
+        ? appointmentId
+        : typeof appointmentId === 'string' && /^\d+$/.test(appointmentId)
+          ? Number(appointmentId)
+          : Number.NaN;
+
+    if (!Number.isSafeInteger(parsedAppointmentId) || parsedAppointmentId < 1 || parsedAppointmentId > 32767) {
       return NextResponse.json({ error: 'Nieprawidłowe ID rezerwacji.' }, { status: 400 });
     }
 
@@ -30,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: existingAppointment, error: lookupError } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', appointmentId)
+      .eq('id', parsedAppointmentId)
       .single();
 
     if (lookupError || !existingAppointment) {
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { data: appointment, error: updateError } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
-      .eq('id', appointmentId)
+      .eq('id', parsedAppointmentId)
       .eq('client_email', existingAppointment.client_email)
       .neq('status', 'cancelled')
       .select('*')
@@ -88,8 +96,18 @@ export async function POST(request: NextRequest) {
     }
 
     const targetEmail = appointment.client_email;
-    const formattedDate = appointment.start_time ? appointment.start_time.split('T')[0] : 'Brak daty';
-    const startTime = appointment.start_time ? appointment.start_time.split('T')[1]?.substring(0, 5) || '' : '';
+    let formattedDate = 'Brak daty';
+    let startTime = '';
+    if (appointment.start_time) {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Warsaw',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      }).formatToParts(new Date(appointment.start_time));
+      const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+      if (values.year && values.month && values.day) formattedDate = `${values.year}-${values.month}-${values.day}`;
+      if (values.hour && values.minute) startTime = `${values.hour}:${values.minute}`;
+    }
 
     // 3. Email do klienta
     if (targetEmail) {
@@ -126,7 +144,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: 'Wizyta pomyślnie odwołana.' });
   } catch (error: unknown) {
     console.error('[API CANCEL CRASH]:', error);
-    const msg = error instanceof Error ? error.message : 'Błąd serwera.';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Wystąpił błąd serwera. Spróbuj ponownie.' }, { status: 500 });
   }
 }

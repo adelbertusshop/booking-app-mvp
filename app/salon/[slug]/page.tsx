@@ -62,6 +62,7 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
         .from('salons')
         .select('id, salon_name, slug')
         .eq('slug', slug)
+        .eq('is_public', true)
         .single();
 
       if (error || !salonData) { setNotFound(true); setLoadingInit(false); return; }
