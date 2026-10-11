@@ -21,6 +21,7 @@ export async function GET(req: Request) {
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`)) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date) return NextResponse.json({ error: 'Nieprawidłowa data.' }, { status: 400 });
     const { data: salon, error: salonError } = await supabase
       .from('salons')
       .select('id, is_public')
@@ -36,10 +37,18 @@ export async function GET(req: Request) {
     const dateObj = new Date(date + 'T12:00:00');
     const jsDow = dateObj.getDay();
     const ourDow = jsDow === 0 ? 6 : jsDow - 1;
-    const { data: hourData } = await supabase.from('salon_hours').select('*').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
+    const { data: hourData, error: hoursError } = await supabase.from('salon_hours').select('*').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
+    if (hoursError && hoursError.code !== 'PGRST116') {
+      console.error('[APPOINTMENT AVAILABILITY HOURS ERROR]', hoursError);
+      return NextResponse.json({ error: 'Nie udało się pobrać godzin salonu.' }, { status: 500 });
+    }
     if (!hourData || !hourData.is_working) return NextResponse.json({ bookedTimes: [], allSlots: [], isDayOff: true });
     const dayStart = `${date}T00:00:00`, dayEnd = `${date}T23:59:59`;
-    const { data: booked } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
+    const { data: booked, error: bookedError } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
+    if (bookedError) {
+      console.error('[APPOINTMENT AVAILABILITY BOOKINGS ERROR]', bookedError);
+      return NextResponse.json({ error: 'Nie udało się pobrać zajętych terminów.' }, { status: 500 });
+    }
     const bookedTimes = (booked || []).map((a) => ({ start: a.start_time?.split('T')[1]?.substring(0, 5) || '', end: a.end_time?.split('T')[1]?.substring(0, 5) || '' }));
     return NextResponse.json({ bookedTimes, openTime: hourData.open_time.substring(0, 5), closeTime: hourData.close_time.substring(0, 5), isDayOff: false });
   } catch { return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 }); }
@@ -57,7 +66,7 @@ export async function POST(req: Request) {
     if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Nieprawidłowy numer telefonu.' }, { status: 400 });
 
     const startDateObj = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(startDateObj.getTime())) return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
+    if (Number.isNaN(startDateObj.getTime()) || startDateObj.getFullYear() !== Number(date.slice(0, 4)) || startDateObj.getMonth() + 1 !== Number(date.slice(5, 7)) || startDateObj.getDate() !== Number(date.slice(8, 10)) || startDateObj.getHours() !== Number(time.slice(0, 2)) || startDateObj.getMinutes() !== Number(time.slice(3, 5)) || Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
     if (startDateObj.getTime() <= Date.now()) return NextResponse.json({ error: 'Nie można zarezerwować terminu w przeszłości.' }, { status: 400 });
 
     let durationMinutes = 60, serviceName = 'Wizyta', salonName = 'Salon';
@@ -83,12 +92,20 @@ export async function POST(req: Request) {
     if (requestedMinutes < openMinutes || endMinutes > closeMinutes) return NextResponse.json({ error: 'Wybrany termin wykracza poza godziny pracy salonu.' }, { status: 400 });
     const startIso = startDateObj.toISOString(), endIso = endDateObj.toISOString();
 
-    const { data: conflict } = await supabase.from('appointments').select('id').eq('salon_id', salonId).neq('status', 'cancelled').lt('start_time', endIso).gt('end_time', startIso).limit(1);
+    const { data: conflict, error: conflictError } = await supabase.from('appointments').select('id').eq('salon_id', salonId).neq('status', 'cancelled').lt('start_time', endIso).gt('end_time', startIso).limit(1);
+    if (conflictError) {
+      console.error('[APPOINTMENT CONFLICT CHECK ERROR]', conflictError);
+      return NextResponse.json({ error: 'Nie udało się sprawdzić dostępności. Spróbuj ponownie.' }, { status: 500 });
+    }
     if (conflict && conflict.length > 0) return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
 
     const targetYear = startDateObj.getFullYear(), targetMonth = startDateObj.getMonth();
     const monthStart = new Date(targetYear, targetMonth, 1).toISOString(), monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59).toISOString();
-    const { count: monthCount } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart).lte('start_time', monthEnd);
+    const { count: monthCount, error: monthCountError } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart).lte('start_time', monthEnd);
+    if (monthCountError || monthCount === null) {
+      console.error('[APPOINTMENT MONTHLY LIMIT CHECK ERROR]', monthCountError);
+      return NextResponse.json({ error: 'Nie udało się zweryfikować limitu rezerwacji. Spróbuj ponownie.' }, { status: 500 });
+    }
     if ((monthCount || 0) >= 50) return NextResponse.json({ error: 'Salon osiągnął limit 50 rezerwacji w tym miesiącu (plan FREE). Skontaktuj się z właścicielem salonu.', limitReached: true }, { status: 429 });
 
     const { data: appointment, error } = await supabase.from('appointments').insert([{
@@ -106,6 +123,6 @@ export async function POST(req: Request) {
     if (email && resend) await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [email], subject: `✅ Potwierdzenie rezerwacji — ${salonName}`, html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Rezerwacja potwierdzona ✅</h2><p style="color:#e5e7eb;">Witaj <strong>${safeClientName}</strong>,</p><p style="color:#e5e7eb;">Twoja wizyta w salonie <strong style="color:#f59e0b;">${safeSalonName}</strong> została potwierdzona.</p><p style="color:#e5e7eb;">Usługa: <strong>${safeServiceName}</strong><br>Data: <strong>${safeDate}</strong><br>Godzina: <strong>${safeTime}</strong></p></div>` }).catch(console.error);
     const adminEmail = salon.admin_email;
     if (adminEmail && resend) await resend.emails.send({ from: 'powiadomienia@lumaria-app.pl', to: [adminEmail], subject: `🔔 Nowa rezerwacja — ${salonName}`, html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#1a1a1a;padding:24px;border-radius:12px;"><h2 style="color:#f59e0b;margin-top:0;">Nowa rezerwacja 🔔</h2><p style="color:#fff;">Klient: <strong>${safeClientName}</strong><br>Email: ${safeEmail || '-'}<br>Telefon: ${safePhone || '-'}<br>Usługa: ${safeServiceName}<br>Data: ${safeDate}<br>Godzina: ${safeTime}</p></div>` }).catch(console.error);
-    return NextResponse.json({ success: true, data: appointment });
+    return NextResponse.json({ success: true, data: { id: appointment.id, start_time: appointment.start_time, end_time: appointment.end_time, status: appointment.status, service_id: appointment.service_id } });
   } catch (err) { console.error('[APPOINTMENT API ERROR]', err); return NextResponse.json({ error: 'Wystąpił błąd serwera. Spróbuj ponownie.' }, { status: 500 }); }
 }
