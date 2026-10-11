@@ -88,8 +88,18 @@ export async function POST(request: NextRequest) {
     }
 
     const targetEmail = appointment.client_email;
-    const formattedDate = appointment.start_time ? appointment.start_time.split('T')[0] : 'Brak daty';
-    const startTime = appointment.start_time ? appointment.start_time.split('T')[1]?.substring(0, 5) || '' : '';
+    let formattedDate = 'Brak daty';
+    let startTime = '';
+    if (appointment.start_time) {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Warsaw',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      }).formatToParts(new Date(appointment.start_time));
+      const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+      if (values.year && values.month && values.day) formattedDate = `${values.year}-${values.month}-${values.day}`;
+      if (values.hour && values.minute) startTime = `${values.hour}:${values.minute}`;
+    }
 
     // 3. Email do klienta
     if (targetEmail) {
