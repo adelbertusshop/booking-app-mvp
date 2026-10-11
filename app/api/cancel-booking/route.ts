@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { data: appointment, error: updateError } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
-      .eq('id', appointmentId)
+      .eq('id', parsedAppointmentId)
       .eq('client_email', existingAppointment.client_email)
       .neq('status', 'cancelled')
       .select('*')
