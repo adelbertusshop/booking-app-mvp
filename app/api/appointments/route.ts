@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`)) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date) return NextResponse.json({ error: 'Nieprawidłowa data.' }, { status: 400 });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`)) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date) return NextResponse.json({ error: 'Nieprawidłowa data.' }, { status: 400 });
     const { data: salon, error: salonError } = await supabase
       .from('salons')
       .select('id, is_public')
