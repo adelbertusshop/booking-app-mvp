@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     const { date, time, clientName, email, phone, salonId, serviceId } = body;
     if (!salonId) return NextResponse.json({ error: 'Brak salonId.' }, { status: 400 });
     if (!date || !time) return NextResponse.json({ error: 'Brak daty lub godziny.' }, { status: 400 });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return NextResponse.json({ error: 'Nieprawidłowy format daty lub godziny.' }, { status: 400 });
+    if (typeof date !== 'string' || typeof time !== 'string' || !isValidCalendarDate(date) || !/^\d{2}:\d{2}$/.test(time) || Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
     if (clientName !== undefined && (typeof clientName !== 'string' || clientName.trim().length < 2 || clientName.length > 120)) return NextResponse.json({ error: 'Nieprawidłowe imię i nazwisko.' }, { status: 400 });
     if (typeof email !== 'string' || email.trim().length === 0 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return NextResponse.json({ error: 'Nieprawidłowy adres e-mail.' }, { status: 400 });
     if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Nieprawidłowy numer telefonu.' }, { status: 400 });
