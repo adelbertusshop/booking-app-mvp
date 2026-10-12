@@ -6,6 +6,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -13,6 +17,9 @@ export async function GET(req: Request) {
 
     if (!salonId) {
       return NextResponse.json({ error: 'Brak salonId' }, { status: 400 });
+    }
+    if (!isUuid(salonId)) {
+      return NextResponse.json({ error: 'Nieprawidłowe ID salonu.' }, { status: 400 });
     }
 
     // The service-role key bypasses RLS, so verify publication status here.
