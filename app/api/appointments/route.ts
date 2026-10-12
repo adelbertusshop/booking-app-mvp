@@ -15,22 +15,55 @@ function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function isValidCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
-    const dateObj = new Date(date + 'T12:00:00');
-    const jsDow = dateObj.getDay();
+    if (!isValidCalendarDate(date)) return NextResponse.json({ error: 'Nieprawidłowa data.' }, { status: 400 });
+
+    // This route uses the service-role key when configured, so enforce public
+    // visibility here rather than relying on RLS alone.
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id, is_public')
+      .eq('id', salonId)
+      .maybeSingle();
+    if (salonError) {
+      console.error('[APPOINTMENT AVAILABILITY SALON ERROR]', salonError);
+      return NextResponse.json({ error: 'Nie udało się pobrać dostępności.' }, { status: 500 });
+    }
+    if (!salon || !salon.is_public) {
+      return NextResponse.json({ error: 'Ten salon nie przyjmuje obecnie rezerwacji online.' }, { status: 404 });
+    }
+
+    const dateObj = new Date(`${date}T12:00:00Z`);
+    const jsDow = dateObj.getUTCDay();
     const ourDow = jsDow === 0 ? 6 : jsDow - 1;
-    const { data: hourData } = await supabase.from('salon_hours').select('*').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
+    const { data: hourData, error: hoursError } = await supabase.from('salon_hours').select('*').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
+    if (hoursError && hoursError.code !== 'PGRST116') {
+      console.error('[APPOINTMENT AVAILABILITY HOURS ERROR]', hoursError);
+      return NextResponse.json({ error: 'Nie udało się pobrać godzin salonu.' }, { status: 500 });
+    }
     if (!hourData || !hourData.is_working) return NextResponse.json({ bookedTimes: [], allSlots: [], isDayOff: true });
     const dayStart = `${date}T00:00:00`, dayEnd = `${date}T23:59:59`;
-    const { data: booked } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
+    const { data: booked, error: bookedError } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
+    if (bookedError) {
+      console.error('[APPOINTMENT AVAILABILITY BOOKINGS ERROR]', bookedError);
+      return NextResponse.json({ error: 'Nie udało się pobrać zajętych terminów.' }, { status: 500 });
+    }
     const bookedTimes = (booked || []).map((a) => ({ start: a.start_time?.split('T')[1]?.substring(0, 5) || '', end: a.end_time?.split('T')[1]?.substring(0, 5) || '' }));
     return NextResponse.json({ bookedTimes, openTime: hourData.open_time.substring(0, 5), closeTime: hourData.close_time.substring(0, 5), isDayOff: false });
-  } catch { return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 }); }
+  } catch {
+    return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
