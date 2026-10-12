@@ -15,6 +15,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Brak salonId' }, { status: 400 });
     }
 
+    // The service-role key bypasses RLS, so verify publication status here.
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id')
+      .eq('id', salonId)
+      .eq('is_public', true)
+      .maybeSingle();
+
+    if (salonError) {
+      console.error('[PUBLIC SERVICES SALON ERROR]', salonError);
+      return NextResponse.json({ error: 'Nie udało się pobrać usług.' }, { status: 500 });
+    }
+
+    if (!salon) {
+      return NextResponse.json({ error: 'Salon nie jest dostępny publicznie.' }, { status: 404 });
+    }
+
     const { data, error } = await supabase
       .from('services')
       .select('id, name, duration_minutes, price')
@@ -22,11 +39,13 @@ export async function GET(req: Request) {
       .order('name', { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[PUBLIC SERVICES QUERY ERROR]', error);
+      return NextResponse.json({ error: 'Nie udało się pobrać usług.' }, { status: 500 });
     }
 
     return NextResponse.json({ services: data || [] });
-  } catch {
+  } catch (error) {
+    console.error('[PUBLIC SERVICES API ERROR]', error);
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
   }
 }
