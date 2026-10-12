@@ -15,6 +15,10 @@ function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function isValidCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T12:00:00Z`);
@@ -27,6 +31,7 @@ export async function GET(req: Request) {
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
     if (!salonId || !date) return NextResponse.json({ error: 'Brak salonId lub date' }, { status: 400 });
+    if (!isUuid(salonId)) return NextResponse.json({ error: 'Nieprawidłowe ID salonu.' }, { status: 400 });
     if (!isValidCalendarDate(date)) return NextResponse.json({ error: 'Nieprawidłowa data.' }, { status: 400 });
 
     // This route uses the service-role key when configured, so enforce public
@@ -71,6 +76,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { date, time, clientName, email, phone, salonId, serviceId } = body;
     if (!salonId) return NextResponse.json({ error: 'Brak salonId.' }, { status: 400 });
+    if (!isUuid(salonId)) return NextResponse.json({ error: 'Nieprawidłowe ID salonu.' }, { status: 400 });
     if (!date || !time) return NextResponse.json({ error: 'Brak daty lub godziny.' }, { status: 400 });
     if (typeof date !== 'string' || typeof time !== 'string' || !isValidCalendarDate(date) || !/^\d{2}:\d{2}$/.test(time) || Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
     if (clientName !== undefined && (typeof clientName !== 'string' || clientName.trim().length < 2 || clientName.length > 120)) return NextResponse.json({ error: 'Nieprawidłowe imię i nazwisko.' }, { status: 400 });
