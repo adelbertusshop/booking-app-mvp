@@ -99,39 +99,45 @@ export async function POST(request: NextRequest) {
     const formattedDate = appointment.start_time ? appointment.start_time.split('T')[0] : 'Brak daty';
     const startTime = appointment.start_time ? appointment.start_time.split('T')[1]?.substring(0, 5) || '' : '';
 
-    // 3. Email do klienta
-    if (targetEmail) {
-      try {
-        await sendBookingConfirmation({
+    // 3. E-mail do klienta. Wynik Resend zapisujemy, aby nie ukrywać błędu wysyłki.
+    const clientEmailSent = targetEmail
+      ? await sendBookingConfirmation({
           to: targetEmail,
           clientName: appointment.client_name || 'Klient',
           serviceName: '[ANULOWANO WIZYTĘ]',
           date: formattedDate,
           startTime,
-        });
-      } catch (err) {
-        console.error('Błąd e-mail klient:', err);
-      }
-    }
+          type: 'cancellation',
+        })
+      : false;
 
-    // 4. Email do admina salonu — tylko jeśli mamy poprawny adres z bazy
-    if (adminEmail) {
-      try {
-        await sendBookingConfirmation({
+    // 4. E-mail do właściciela salonu — adres wyłącznie z bazy.
+    const ownerEmailSent = adminEmail
+      ? await sendBookingConfirmation({
           to: adminEmail,
           clientName: appointment.client_name || 'Klient',
           serviceName: '[ODWOŁANO WIZYTĘ]',
           date: formattedDate,
           startTime,
-        });
-      } catch (err) {
-        console.error('Błąd e-mail admin:', err);
-      }
-    } else {
-      console.warn('[CANCEL EMAIL] Pominięto email do admina — brak adresu w bazie.');
-    }
+          type: 'cancellation',
+        })
+      : false;
 
-    return NextResponse.json({ success: true, message: 'Wizyta pomyślnie odwołana.' });
+    console.info('[CANCEL EMAIL STATUS]', {
+      clientAddressConfigured: Boolean(targetEmail),
+      clientAcceptedByResend: clientEmailSent,
+      ownerAddressConfigured: Boolean(adminEmail),
+      ownerAcceptedByResend: ownerEmailSent,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Wizyta pomyślnie odwołana.',
+      email: {
+        client: clientEmailSent ? 'accepted' : 'failed',
+        owner: ownerEmailSent ? 'accepted' : adminEmail ? 'failed' : 'missing_address',
+      },
+    });
   } catch (error: unknown) {
     console.error('[API CANCEL CRASH]:', error);
     const msg = error instanceof Error ? error.message : 'Błąd serwera.';

@@ -23,7 +23,7 @@ export async function sendBookingConfirmation({
 
   if (!apiKey) {
     console.error('[EMAIL ERROR] Brak RESEND_API_KEY!');
-    return;
+    return false;
   }
 
   const resend = new Resend(apiKey);
@@ -90,10 +90,13 @@ export async function sendBookingConfirmation({
 
     if (error) {
       console.error('[EMAIL ERROR]', error);
-    } else {
-      console.log('[EMAIL OK] ID:', data?.id, '→', to);
+      return false;
     }
+
+    console.log('[EMAIL ACCEPTED] ID:', data?.id);
+    return true;
   } catch (err) {
     console.error('[EMAIL CRASH]', err);
+    return false;
   }
 }
