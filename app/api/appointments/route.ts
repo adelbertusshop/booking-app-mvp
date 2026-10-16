@@ -69,7 +69,7 @@ function warsawDateTimeToUtc(date: string, time: string): Date | null {
         Number(parts.day) === day && Number(parts.hour) === hour &&
         Number(parts.minute) === minute) matches.push(candidate);
   }
-  const uniqueMatches = [...new Set(matches)];
+  const uniqueMatches = Array.from(new Set(matches));
   return uniqueMatches.length === 1 ? new Date(uniqueMatches[0]) : null;
 }
 
