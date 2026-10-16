@@ -28,26 +28,49 @@ function isValidCalendarDate(value: string): boolean {
 const WARSAW_TIME_ZONE = 'Europe/Warsaw';
 
 function warsawDateTimeToUtc(date: string, time: string): Date | null {
-  if (!isValidCalendarDate(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
+  if (!isValidCalendarDate(date) || !/^\\d{2}:\\d{2}$/.test(time)) return null;
   const [year, month, day] = date.split('-').map(Number);
   const [hour, minute] = time.split(':').map(Number);
   if (hour > 23 || minute > 59) return null;
+
   const wallClock = Date.UTC(year, month - 1, day, hour, minute);
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: WARSAW_TIME_ZONE, year: 'numeric', month: '2-digit',
-    day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23',
   });
-  const matches: number[] = [];
-  for (let offset = -180; offset <= 180; offset++) {
-    const candidate = wallClock + offset * 60_000;
-    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+
+  const getParts = (instant: number) => Object.fromEntries(
+    formatter.formatToParts(new Date(instant))
       .filter((part) => part.type !== 'literal')
-      .map((part) => [part.type, part.value]));
+      .map((part) => [part.type, part.value]),
+  );
+  const getOffsetMinutes = (instant: number) => {
+    const parts = getParts(instant);
+    const localAsUtc = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second),
+    );
+    return Math.round((localAsUtc - instant) / 60_000);
+  };
+
+  // Warsaw's UTC offset is stable for nearby instants except around DST changes.
+  // Sample both sides of the requested wall-clock time and validate each candidate.
+  const offsets = new Set([
+    getOffsetMinutes(wallClock - 36 * 60 * 60 * 1000),
+    getOffsetMinutes(wallClock),
+    getOffsetMinutes(wallClock + 36 * 60 * 60 * 1000),
+  ]);
+  const matches: number[] = [];
+  for (const offsetMinutes of offsets) {
+    const candidate = wallClock - offsetMinutes * 60_000;
+    const parts = getParts(candidate);
     if (Number(parts.year) === year && Number(parts.month) === month &&
         Number(parts.day) === day && Number(parts.hour) === hour &&
         Number(parts.minute) === minute) matches.push(candidate);
   }
-  return matches.length === 1 ? new Date(matches[0]) : null;
+  const uniqueMatches = [...new Set(matches)];
+  return uniqueMatches.length === 1 ? new Date(uniqueMatches[0]) : null;
 }
 
 function warsawTimeFromIso(value: string | null): string {
