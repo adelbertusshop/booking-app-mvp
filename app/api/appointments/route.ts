@@ -62,7 +62,7 @@ function warsawDateTimeToUtc(date: string, time: string): Date | null {
     getOffsetMinutes(wallClock + 36 * 60 * 60 * 1000),
   ]);
   const matches: number[] = [];
-  for (const offsetMinutes of offsets) {
+  for (const offsetMinutes of Array.from(offsets)) {
     const candidate = wallClock - offsetMinutes * 60_000;
     const parts = getParts(candidate);
     if (Number(parts.year) === year && Number(parts.month) === month &&
