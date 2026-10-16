@@ -25,6 +25,38 @@ function isValidCalendarDate(value: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+const WARSAW_TIME_ZONE = 'Europe/Warsaw';
+
+function warsawDateTimeToUtc(date: string, time: string): Date | null {
+  if (!isValidCalendarDate(date) || !/^\\d{2}:\\d{2}$/.test(time)) return null;
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  if (hour > 23 || minute > 59) return null;
+  const wallClock = Date.UTC(year, month - 1, day, hour, minute);
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: WARSAW_TIME_ZONE, year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const matches: number[] = [];
+  for (let offset = -180; offset <= 180; offset++) {
+    const candidate = wallClock + offset * 60_000;
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]));
+    if (Number(parts.year) === year && Number(parts.month) === month &&
+        Number(parts.day) === day && Number(parts.hour) === hour &&
+        Number(parts.minute) === minute) matches.push(candidate);
+  }
+  return matches.length === 1 ? new Date(matches[0]) : null;
+}
+
+function warsawTimeFromIso(value: string | null): string {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: WARSAW_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(value));
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -58,13 +90,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Nie udało się pobrać godzin salonu.' }, { status: 500 });
     }
     if (!hourData || !hourData.is_working) return NextResponse.json({ bookedTimes: [], allSlots: [], isDayOff: true });
-    const dayStart = `${date}T00:00:00`, dayEnd = `${date}T23:59:59`;
-    const { data: booked, error: bookedError } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', dayStart).lte('start_time', dayEnd);
+    const dayStart = warsawDateTimeToUtc(date, '00:00');
+    const nextDate = new Date(`${date}T12:00:00Z`);
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    const nextDateString = nextDate.toISOString().slice(0, 10);
+    const dayEnd = warsawDateTimeToUtc(nextDateString, '00:00');
+    if (!dayStart || !dayEnd) return NextResponse.json({ error: 'Nie udało się ustalić granic dnia.' }, { status: 500 });
+    const { data: booked, error: bookedError } = await supabase.from('appointments').select('start_time, end_time').eq('salon_id', salonId).neq('status', 'cancelled').lt('start_time', dayEnd.toISOString()).gte('start_time', dayStart.toISOString());
     if (bookedError) {
       console.error('[APPOINTMENT AVAILABILITY BOOKINGS ERROR]', bookedError);
       return NextResponse.json({ error: 'Nie udało się pobrać zajętych terminów.' }, { status: 500 });
     }
-    const bookedTimes = (booked || []).map((a) => ({ start: a.start_time?.split('T')[1]?.substring(0, 5) || '', end: a.end_time?.split('T')[1]?.substring(0, 5) || '' }));
+    const bookedTimes = (booked || []).map((a) => ({ start: warsawTimeFromIso(a.start_time), end: warsawTimeFromIso(a.end_time) }));
     return NextResponse.json({ bookedTimes, openTime: hourData.open_time.substring(0, 5), closeTime: hourData.close_time.substring(0, 5), isDayOff: false });
   } catch {
     return NextResponse.json({ error: 'Błąd serwera' }, { status: 500 });
@@ -83,8 +120,8 @@ export async function POST(req: Request) {
     if (typeof email !== 'string' || email.trim().length === 0 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return NextResponse.json({ error: 'Nieprawidłowy adres e-mail.' }, { status: 400 });
     if (phone !== undefined && phone !== null && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Nieprawidłowy numer telefonu.' }, { status: 400 });
 
-    const startDateObj = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(startDateObj.getTime())) return NextResponse.json({ error: 'Nieprawidłowa data lub godzina.' }, { status: 400 });
+    const startDateObj = warsawDateTimeToUtc(date, time);
+    if (!startDateObj) return NextResponse.json({ error: 'Nieprawidłowa godzina lub godzina niejednoznaczna z powodu zmiany czasu.' }, { status: 400 });
     if (startDateObj.getTime() <= Date.now()) return NextResponse.json({ error: 'Nie można zarezerwować terminu w przeszłości.' }, { status: 400 });
 
     let durationMinutes = 60, serviceName = 'Wizyta', salonName = 'Salon';
@@ -100,12 +137,13 @@ export async function POST(req: Request) {
       durationMinutes = svc.duration_minutes; if (svc.name) serviceName = svc.name;
     }
 
-    const jsDow = startDateObj.getDay(), ourDow = jsDow === 0 ? 6 : jsDow - 1;
+    const jsDow = new Date(`${date}T12:00:00Z`).getUTCDay(), ourDow = jsDow === 0 ? 6 : jsDow - 1;
     const { data: hourData } = await supabase.from('salon_hours').select('open_time, close_time, is_working').eq('salon_id', salonId).eq('day_of_week', ourDow).single();
     if (!hourData || !hourData.is_working) return NextResponse.json({ error: 'Salon jest zamknięty w wybranym dniu.' }, { status: 400 });
     const [openHour, openMinute] = String(hourData.open_time).slice(0, 5).split(':').map(Number);
     const [closeHour, closeMinute] = String(hourData.close_time).slice(0, 5).split(':').map(Number);
-    const requestedMinutes = startDateObj.getHours() * 60 + startDateObj.getMinutes(), closeMinutes = closeHour * 60 + closeMinute, openMinutes = openHour * 60 + openMinute;
+    const [requestedHour, requestedMinute] = time.split(':').map(Number);
+    const requestedMinutes = requestedHour * 60 + requestedMinute, closeMinutes = closeHour * 60 + closeMinute, openMinutes = openHour * 60 + openMinute;
     const endDateObj = new Date(startDateObj.getTime() + durationMinutes * 60 * 1000), endMinutes = requestedMinutes + durationMinutes;
     if (requestedMinutes < openMinutes || endMinutes > closeMinutes) return NextResponse.json({ error: 'Wybrany termin wykracza poza godziny pracy salonu.' }, { status: 400 });
     const startIso = startDateObj.toISOString(), endIso = endDateObj.toISOString();
@@ -113,9 +151,17 @@ export async function POST(req: Request) {
     const { data: conflict } = await supabase.from('appointments').select('id').eq('salon_id', salonId).neq('status', 'cancelled').lt('start_time', endIso).gt('end_time', startIso).limit(1);
     if (conflict && conflict.length > 0) return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
 
-    const targetYear = startDateObj.getFullYear(), targetMonth = startDateObj.getMonth();
-    const monthStart = new Date(targetYear, targetMonth, 1).toISOString(), monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59).toISOString();
-    const { count: monthCount } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart).lte('start_time', monthEnd);
+    const [targetYear, targetMonth] = date.split('-').slice(0, 2).map(Number);
+    const monthStartDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
+    const nextMonthDate = targetMonth === 12 ? `${targetYear + 1}-01-01` : `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
+    const monthStart = warsawDateTimeToUtc(monthStartDate, '00:00');
+    const monthEnd = warsawDateTimeToUtc(nextMonthDate, '00:00');
+    if (!monthStart || !monthEnd) return NextResponse.json({ error: 'Nie udało się ustalić granic miesiąca.' }, { status: 500 });
+    const { count: monthCount, error: monthCountError } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart.toISOString()).lt('start_time', monthEnd.toISOString());
+    if (monthCountError || monthCount === null) {
+      console.error('[APPOINTMENT MONTHLY LIMIT CHECK ERROR]', monthCountError);
+      return NextResponse.json({ error: 'Nie udało się zweryfikować limitu rezerwacji. Spróbuj ponownie.' }, { status: 500 });
+    }
     if ((monthCount || 0) >= 50) return NextResponse.json({ error: 'Salon osiągnął limit 50 rezerwacji w tym miesiącu (plan FREE). Skontaktuj się z właścicielem salonu.', limitReached: true }, { status: 429 });
 
     const { data: appointment, error } = await supabase.from('appointments').insert([{
