@@ -28,7 +28,7 @@ function isValidCalendarDate(value: string): boolean {
 const WARSAW_TIME_ZONE = 'Europe/Warsaw';
 
 function warsawDateTimeToUtc(date: string, time: string): Date | null {
-  if (!isValidCalendarDate(date) || !/^\\d{2}:\\d{2}$/.test(time)) return null;
+  if (!isValidCalendarDate(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
   const [year, month, day] = date.split('-').map(Number);
   const [hour, minute] = time.split(':').map(Number);
   if (hour > 23 || minute > 59) return null;
