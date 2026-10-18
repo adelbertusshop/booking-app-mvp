@@ -401,15 +401,20 @@ export default function AdminPage() {
     }
     setError('');
     setSendingReset(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      setError('Nie udało się wysłać wiadomości. Sprawdź adres i spróbuj ponownie.');
-    } else {
-      setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        setError('Nie udało się wysłać wiadomości. Sprawdź adres i spróbuj ponownie.');
+      } else {
+        setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.');
+      }
+    } catch {
+      setError('Nie udało się wysłać wiadomości. Sprawdź połączenie i spróbuj ponownie.');
+    } finally {
+      setSendingReset(false);
     }
-    setSendingReset(false);
   };
 
   const handleSaveEmail = async () => {
