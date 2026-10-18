@@ -28,18 +28,27 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (active) {
-        setReady(Boolean(session));
-        if (!session) setMessage('Link jest nieprawidłowy lub wygasł. Poproś o nowy link na ekranie logowania.');
-      }
-    });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active && session) {
-        setReady(true);
-        setMessage('');
+      if (!active) return;
+      setReady(Boolean(session));
+      if (session) setMessage('');
+    });
+
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!active) return;
+      setReady(Boolean(session));
+      if (!session) {
+        setMessage(error
+          ? 'Nie udało się sprawdzić linku. Odśwież stronę lub poproś o nowy link.'
+          : 'Link jest nieprawidłowy lub wygasł. Poproś o nowy link na ekranie logowania.');
+      }
+    }).catch(() => {
+      if (active) {
+        setReady(false);
+        setMessage('Nie udało się sprawdzić linku. Odśwież stronę lub poproś o nowy link.');
       }
     });
+
     return () => {
       active = false;
       listener.subscription.unsubscribe();
@@ -55,16 +64,21 @@ export default function ResetPasswordPage() {
     if (!ready) { setMessage('Link jest nieprawidłowy lub wygasł. Poproś o nowy link.'); return; }
 
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setMessage('Nie udało się zmienić hasła. Link mógł wygasnąć — poproś o nowy.');
-    } else {
-      setSuccess(true);
-      setMessage('Hasło zostało zmienione. Możesz przejść do panelu LUMAR.');
-      setPassword('');
-      setConfirmation('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setMessage('Nie udało się zmienić hasła. Link mógł wygasnąć — poproś o nowy.');
+      } else {
+        setSuccess(true);
+        setMessage('Hasło zostało zmienione. Możesz przejść do panelu LUMAR.');
+        setPassword('');
+        setConfirmation('');
+      }
+    } catch {
+      setMessage('Nie udało się zmienić hasła z powodu błędu połączenia. Spróbuj ponownie.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
