@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+function passwordPolicyError(password: string): string | null {
+  if (password.length < 12) return 'Hasło musi mieć co najmniej 12 znaków.';
+  if (!/[a-z]/.test(password)) return 'Hasło musi zawierać małą literę.';
+  if (!/[A-Z]/.test(password)) return 'Hasło musi zawierać wielką literę.';
+  if (!/[0-9]/.test(password)) return 'Hasło musi zawierać cyfrę.';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Hasło musi zawierać znak specjalny.';
+  return null;
+}
+
 function toSlug(name: string): string {
   return name
     .toLowerCase()
@@ -97,7 +106,7 @@ export default function AdminPage() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);\n  const [sendingReset, setSendingReset] = useState(false);
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
 
@@ -369,7 +378,9 @@ export default function AdminPage() {
     setError('');
     if (isRegistering) {
       if (!salonNameReg.trim()) { setError('Podaj nazwę salonu.'); return; }
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: password.trim() });
+      const passwordError = passwordPolicyError(password);
+      if (passwordError) { setError(passwordError); return; }
+      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
       if (error) { setError(error.message); return; }
       if (data?.user) {
         await supabase.from('salons').insert([{ user_id: data.user.id, admin_email: email.trim(), salon_name: salonNameReg.trim(), slug: toSlug(salonNameReg.trim()), whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!' }]);
@@ -380,6 +391,24 @@ export default function AdminPage() {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: password.trim() });
       if (error) setError('Nieprawidłowy e-mail lub hasło.');
     }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setError('Wpisz adres e-mail, a następnie wybierz odzyskiwanie hasła.');
+      return;
+    }
+    setError('');
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      setError('Nie udało się wysłać wiadomości. Sprawdź adres i spróbuj ponownie.');
+    } else {
+      setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.');
+    }
+    setSendingReset(false);
   };
 
   const handleSaveEmail = async () => {
@@ -402,8 +431,14 @@ export default function AdminPage() {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
-    if (newPassword.trim().length >= 6) {
-      const { error } = await supabase.auth.updateUser({ password: newPassword.trim() });
+    if (newPassword.length > 0) {
+      const passwordError = passwordPolicyError(newPassword);
+      if (passwordError) {
+        alert(passwordError);
+        setSavingSettings(false);
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
         alert('Błąd zmiany hasła: ' + error.message);
         setSavingSettings(false);
@@ -470,6 +505,17 @@ export default function AdminPage() {
           className="w-full text-xs text-amber-400/80 hover:text-amber-300 text-center block pt-1">
           {isRegistering ? 'Masz już konto? Zaloguj się' : 'Nowy salon? Zarejestruj się tutaj'}
         </button>
+        {!isRegistering && (
+          <button type="button" onClick={handlePasswordReset} disabled={sendingReset}
+            className="w-full text-xs text-zinc-400 hover:text-amber-300 text-center block pt-1 disabled:opacity-50">
+            {sendingReset ? 'Wysyłanie…' : 'Nie pamiętasz hasła? Wyślij link do resetu'}
+          </button>
+        )}
+        {isRegistering && (
+          <p className="text-xs text-zinc-500 text-center">
+            Hasło: minimum 12 znaków, mała i wielka litera, cyfra oraz znak specjalny.
+          </p>
+        )}
       </form>
     </main>
   );
@@ -923,7 +969,9 @@ export default function AdminPage() {
                 <input type={showNewPassword ? 'text' : 'password'} placeholder="Zostaw puste jeśli nie zmieniasz"
                   value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                   autoComplete="new-password"
+                  minLength={12}
                   className="w-full bg-zinc-900 border border-amber-500/30 rounded-lg p-2.5 pr-16 text-amber-100 text-sm focus:outline-none focus:border-amber-400" />
+                <p className="text-xs text-zinc-500 mt-1">Minimum 12 znaków, mała i wielka litera, cyfra oraz znak specjalny.</p>
                 <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400 text-xs font-bold">
                   {showNewPassword ? 'UKRYJ' : 'POKAŻ'}
