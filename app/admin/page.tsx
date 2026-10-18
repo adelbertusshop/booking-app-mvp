@@ -106,7 +106,8 @@ export default function AdminPage() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);\n  const [sendingReset, setSendingReset] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
 
