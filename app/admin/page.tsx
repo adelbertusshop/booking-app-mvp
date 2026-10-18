@@ -100,6 +100,7 @@ export default function AdminPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [salonNameReg, setSalonNameReg] = useState('');
   const [error, setError] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'appointments' | 'services' | 'hours' | 'notifications' | 'settings'>('dashboard');
   const [showRevenue, setShowRevenue] = useState<boolean>(false);
@@ -364,6 +365,24 @@ export default function AdminPage() {
     else setServices((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const handlePasswordReset = async () => {
+    setError('');
+    setResetMessage('');
+    if (isRegistering) return;
+    if (!email.trim()) {
+      setError('Wpisz adres e-mail, a następnie wybierz odzyskiwanie hasła.');
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      setError('Nie udało się wysłać linku. Sprawdź adres e-mail i spróbuj ponownie.');
+      return;
+    }
+    setResetMessage('Jeśli konto z tym adresem istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.');
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -466,7 +485,14 @@ export default function AdminPage() {
         <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 rounded-lg text-sm transition-colors">
           {isRegistering ? 'Zarejestruj Salon' : 'Zaloguj się'}
         </button>
-        <button type="button" onClick={() => { setError(''); setSalonNameReg(''); setIsRegistering(!isRegistering); }}
+        {!isRegistering && (
+          <button type="button" onClick={handlePasswordReset}
+            className="w-full text-xs text-zinc-400 hover:text-amber-300 text-center block pt-1">
+            Nie pamiętasz hasła?
+          </button>
+        )}
+        {resetMessage && <p role="status" className="text-emerald-400 text-xs text-center">{resetMessage}</p>}
+        <button type="button" onClick={() => { setError(''); setResetMessage(''); setSalonNameReg(''); setIsRegistering(!isRegistering); }}
           className="w-full text-xs text-amber-400/80 hover:text-amber-300 text-center block pt-1">
           {isRegistering ? 'Masz już konto? Zaloguj się' : 'Nowy salon? Zarejestruj się tutaj'}
         </button>
