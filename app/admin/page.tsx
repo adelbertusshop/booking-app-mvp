@@ -388,7 +388,7 @@ export default function AdminPage() {
         setIsRegistering(false); setSalonNameReg('');
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: password.trim() });
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) setError('Nieprawidłowy e-mail lub hasło.');
     }
   };
