@@ -6,7 +6,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  {
+    auth: {
+      flowType: 'pkce',
+      // The page exchanges recovery codes itself so React Strict Mode cannot
+      // race the SDK's automatic URL detection against our recovery handling.
+      detectSessionInUrl: false,
+    },
+  }
 );
 
 function passwordPolicyError(password: string): string | null {
@@ -18,40 +26,101 @@ function passwordPolicyError(password: string): string | null {
   return null;
 }
 
+type RecoveryResult = { ready: boolean; message: string };
+
+// Reuse an in-flight exchange if React Strict Mode runs the effect twice.
+const recoveryExchanges = new Map<string, Promise<RecoveryResult>>();
+
+function establishRecoverySession(): Promise<RecoveryResult> {
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const code = url.searchParams.get('code');
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  const recoveryType = url.searchParams.get('type') || hashParams.get('type');
+  const urlError = url.searchParams.get('error_description') || hashParams.get('error_description');
+
+  if (urlError) {
+    return Promise.resolve({
+      ready: false,
+      message: 'Link jest nieprawidłowy lub wygasł. Poproś o nowy link na ekranie logowania.',
+    });
+  }
+
+  if (code) {
+    const existing = recoveryExchanges.get(code);
+    if (existing) return existing;
+
+    // Remove the one-time code from the address bar while retaining it in memory.
+    url.searchParams.delete('code');
+    window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+
+    const exchange = supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+      if (error || !data.session) {
+        return {
+          ready: false,
+          message: 'Nie udało się potwierdzić linku. Poproś o nowy link do odzyskiwania hasła.',
+        };
+      }
+      return { ready: true, message: '' };
+    }).catch(() => ({
+      ready: false,
+      message: 'Nie udało się potwierdzić linku. Sprawdź połączenie lub poproś o nowy link.',
+    }));
+
+    recoveryExchanges.set(code, exchange);
+    return exchange;
+  }
+
+  // Support older implicit-flow recovery links only when explicitly marked as recovery.
+  if (accessToken && refreshToken && recoveryType === 'recovery') {
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+    return supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    }).then(({ data, error }) => {
+      if (error || !data.session) {
+        return {
+          ready: false,
+          message: 'Nie udało się potwierdzić linku. Poproś o nowy link do odzyskiwania hasła.',
+        };
+      }
+      return { ready: true, message: '' };
+    }).catch(() => ({
+      ready: false,
+      message: 'Nie udało się potwierdzić linku. Sprawdź połączenie lub poproś o nowy link.',
+    }));
+  }
+
+  return Promise.resolve({
+    ready: false,
+    message: 'Link jest nieprawidłowy lub wygasł. Poproś o nowy link na ekranie logowania.',
+  });
+}
+
 export default function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState('Sprawdzanie linku do odzyskiwania hasła…');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     let active = true;
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      setReady(Boolean(session));
-      if (session) setMessage('');
-    });
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    establishRecoverySession().then((result) => {
       if (!active) return;
-      setReady(Boolean(session));
-      if (!session) {
-        setMessage(error
-          ? 'Nie udało się sprawdzić linku. Odśwież stronę lub poproś o nowy link.'
-          : 'Link jest nieprawidłowy lub wygasł. Poproś o nowy link na ekranie logowania.');
-      }
+      setReady(result.ready);
+      setMessage(result.message);
     }).catch(() => {
-      if (active) {
-        setReady(false);
-        setMessage('Nie udało się sprawdzić linku. Odśwież stronę lub poproś o nowy link.');
-      }
+      if (!active) return;
+      setReady(false);
+      setMessage('Nie udało się sprawdzić linku. Poproś o nowy link do odzyskiwania hasła.');
     });
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
     };
   }, []);
 
@@ -71,6 +140,7 @@ export default function ResetPasswordPage() {
       } else {
         setSuccess(true);
         setMessage('Hasło zostało zmienione. Możesz przejść do panelu LUMAR.');
+        setReady(false);
         setPassword('');
         setConfirmation('');
       }
