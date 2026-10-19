@@ -136,7 +136,9 @@ export default function ResetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        setMessage('Nie udało się zmienić hasła. Link mógł wygasnąć — poproś o nowy.');
+        // Surface the Supabase Auth error during Preview testing instead of masking every cause as an expired link.
+        const authMessage = typeof error.message === 'string' ? error.message.slice(0, 180) : '';
+        setMessage(authMessage ? `Błąd zmiany hasła: ${authMessage}` : 'Nie udało się zmienić hasła. Poproś o nowy link i spróbuj ponownie.');
       } else {
         setSuccess(true);
         setMessage('Hasło zostało zmienione. Możesz przejść do panelu LUMAR.');
