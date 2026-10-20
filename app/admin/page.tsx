@@ -404,12 +404,16 @@ export default function AdminPage() {
     try {
       // Use the current deployment's reset page: production resolves to lumaria-app.pl,
       // while preview builds can be tested without redirecting users back to production.
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      // A timeout/error response can arrive after the provider has already accepted the email.
-      // Keep the response generic and avoid a misleading "send failed" message or account disclosure.
-      setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Sprawdź też folder spam.');
+      if (resetError) {
+        // The provider may have accepted the email before returning an error.
+        // Avoid a false failure claim and do not reveal whether the account exists.
+        setError('Nie możemy potwierdzić wysłania. Jeśli konto istnieje, sprawdź skrzynkę i folder spam; w razie braku wiadomości spróbuj ponownie.');
+      } else {
+        setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Sprawdź też folder spam.');
+      }
     } catch {
       setError('Nie możemy potwierdzić wysłania. Jeśli konto istnieje, sprawdź skrzynkę i folder spam; w razie braku wiadomości spróbuj ponownie.');
     } finally {
@@ -478,7 +482,7 @@ export default function AdminPage() {
     <main className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
       <form onSubmit={handleAuth} className="bg-zinc-950 border border-amber-500/30 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
         <h1 className="text-xl font-bold text-amber-400 text-center">{isRegistering ? '🏪 Rejestracja Salonu' : '🔐 Logowanie do Panelu'}</h1>
-        {error && <p role="status" className={`text-xs text-center p-2 rounded-lg border ${error.startsWith('Jeśli konto dla tego adresu istnieje') ? 'text-emerald-300 bg-emerald-950/30 border-emerald-500/30' : 'text-red-400 bg-red-950/40 border-red-500/30'}`}>{error}</p>}
+        {error && <p role="status" className={`text-xs text-center p-2 rounded-lg border ${error.startsWith('Jeśli konto dla tego adresu istnieje') ? 'text-emerald-300 bg-emerald-950/30 border-emerald-500/30' : error.startsWith('Nie możemy potwierdzić wysłania') ? 'text-amber-200 bg-amber-950/30 border-amber-500/30' : 'text-red-400 bg-red-950/40 border-red-500/30'}`}>{error}</p>}
         {isRegistering && (
           <div>
             <label className="block text-xs font-bold text-amber-300 uppercase mb-1">Nazwa Salonu</label>
