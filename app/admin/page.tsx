@@ -404,8 +404,13 @@ export default function AdminPage() {
     try {
       // Use the current deployment's reset page: production resolves to lumaria-app.pl,
       // while preview builds can be tested without redirecting users back to production.
+      // Use a Supabase-allowlisted stable URL. Per-deployment Vercel URLs are not
+      // necessarily allowlisted and Supabase can otherwise fall back to the site root.
+      const recoveryRedirectUrl = window.location.hostname.endsWith('.vercel.app')
+        ? 'https://booking-app-mvp-git-security-421051-grzegorzs-projects-dbc76bba.vercel.app/reset-password'
+        : 'https://lumaria-app.pl/reset-password';
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: recoveryRedirectUrl,
       });
       if (resetError) {
         // The provider may have accepted the email before returning an error.
