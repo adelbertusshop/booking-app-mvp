@@ -402,16 +402,16 @@ export default function AdminPage() {
     setError('');
     setSendingReset(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'https://lumaria-app.pl/reset-password',
+      // Use the current deployment's reset page: production resolves to lumaria-app.pl,
+      // while preview builds can be tested without redirecting users back to production.
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (error) {
-        setError('Nie udało się wysłać wiadomości. Sprawdź adres i spróbuj ponownie.');
-      } else {
-        setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.');
-      }
+      // A timeout/error response can arrive after the provider has already accepted the email.
+      // Keep the response generic and avoid a misleading "send failed" message or account disclosure.
+      setError('Jeśli konto dla tego adresu istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Sprawdź też folder spam.');
     } catch {
-      setError('Nie udało się wysłać wiadomości. Sprawdź połączenie i spróbuj ponownie.');
+      setError('Nie możemy potwierdzić wysłania. Jeśli konto istnieje, sprawdź skrzynkę i folder spam; w razie braku wiadomości spróbuj ponownie.');
     } finally {
       setSendingReset(false);
     }
@@ -478,7 +478,7 @@ export default function AdminPage() {
     <main className="min-h-screen bg-black text-amber-100 flex items-center justify-center p-4">
       <form onSubmit={handleAuth} className="bg-zinc-950 border border-amber-500/30 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
         <h1 className="text-xl font-bold text-amber-400 text-center">{isRegistering ? '🏪 Rejestracja Salonu' : '🔐 Logowanie do Panelu'}</h1>
-        {error && <p className="text-red-400 text-xs text-center bg-red-950/40 border border-red-500/30 p-2 rounded-lg">{error}</p>}
+        {error && <p role="status" className={`text-xs text-center p-2 rounded-lg border ${error.startsWith('Jeśli konto dla tego adresu istnieje') ? 'text-emerald-300 bg-emerald-950/30 border-emerald-500/30' : 'text-red-400 bg-red-950/40 border-red-500/30'}`}>{error}</p>}
         {isRegistering && (
           <div>
             <label className="block text-xs font-bold text-amber-300 uppercase mb-1">Nazwa Salonu</label>
