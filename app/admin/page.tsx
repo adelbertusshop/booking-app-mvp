@@ -403,7 +403,7 @@ export default function AdminPage() {
     setSendingReset(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: 'https://lumaria-app.pl/reset-password',
       });
       if (error) {
         setError('Nie udało się wysłać wiadomości. Sprawdź adres i spróbuj ponownie.');
