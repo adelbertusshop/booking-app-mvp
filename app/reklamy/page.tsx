@@ -50,7 +50,7 @@ export default function ReklamyPage() {
           Wybierz sposób, w jaki klienci zobaczą Twoją firmę.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-          Wybierz pakiet, typ klienta i czas emisji. Ceny są podane netto w PLN; VAT zostanie doliczony zgodnie z konfiguracją systemu.
+          Wybierz pakiet, typ klienta i czas emisji. Ceny są podane netto w PLN. Płatności są jeszcze wyłączone — przed ich uruchomieniem LUMAR musi mieć potwierdzone zasady podatkowe i rozliczeniowe.
         </p>
 
         <div className="mt-8 grid gap-5 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:grid-cols-2">
@@ -144,7 +144,7 @@ export default function ReklamyPage() {
               <p className="mt-1 text-sm text-zinc-400">
                 {clientType === 'salon_w_aplikacji' ? 'Salon w LUMAR' : 'Firma zewnętrzna'} · {duration} dni
               </p>
-              <p className="mt-2 text-sm text-zinc-400">Cena netto. Ostateczna kwota brutto zależy od konfiguracji VAT.</p>
+              <p className="mt-2 text-sm text-zinc-400">Cena netto. Kwota brutto i zasady podatkowe zostaną określone przed uruchomieniem płatności.</p>
             </div>
             <div className="sm:text-right">
               <p className="text-3xl font-black text-amber-300">{selectedPrice === undefined ? '—' : formatNetPrice(selectedPrice)}</p>
@@ -159,7 +159,7 @@ export default function ReklamyPage() {
             </div>
           </div>
           <p className="mt-4 border-t border-zinc-800 pt-4 text-sm leading-6 text-zinc-400">
-            Wybranie pakietu nie pobiera opłaty i nie uruchamia emisji. Reklama zacznie być wyświetlana dopiero po bezpiecznym potwierdzeniu płatności, akceptacji materiału reklamowego i ustaleniu daty startu.
+            Wybranie pakietu nie pobiera opłaty i nie uruchamia emisji. Zakup pozostaje wyłączony do czasu skonfigurowania i przetestowania rozliczeń. Reklama będzie mogła wystartować dopiero po potwierdzeniu płatności przez serwer, akceptacji materiału reklamowego i ustaleniu daty startu.
           </p>
         </aside>
       </section>
