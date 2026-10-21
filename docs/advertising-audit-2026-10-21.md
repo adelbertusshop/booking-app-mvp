@@ -46,3 +46,11 @@ Working branch: `feature/lumar-advertising-plan`
 
 ## Recommendation
 Proceed with non-production implementation only after the owner reviews the specific price list and campaign rules. Build a draft PR and preview; do not merge, apply the migration to production, or enable live payment processing without explicit owner approval.
+
+
+## Additional authorization review (read-only)
+- The existing `app/admin/page.tsx` authenticates a user with Supabase Auth (`getSession`, `onAuthStateChange`, email/password sign-in and sign-up). The visible flow is a salon-owner panel; the inspected code does not establish a separate trusted platform-admin role suitable for ad moderation.
+- Therefore the advertising moderation queue must not be exposed merely because a user is signed in or can access `/admin`. Add a separate server-verified platform-admin authorization mechanism before allowing approve/reject/pause actions. Do not trust client state or a request body role flag.
+- The current RLS policies for salons, services, appointments and salon hours bind salon-owner writes to `salons.user_id = auth.uid()`. Public read policies are scoped to public salons (or owner access). New ad campaigns/orders/events are not present yet in the inspected schema/policy results.
+- The existing appointment route uses a server-side Supabase client that may select the service-role key, and contains comments requiring explicit public checks because service role bypasses RLS. Advertising server routes must follow the same principle: every public list/click endpoint must enforce eligibility and return only intended fields, and every write must verify the user/owner on the server.
+- The Supabase migration history query returned 10 named migrations, including public RLS restrictions and appointment overlap protection; reconcile this history with tracked SQL files before applying any migration.
