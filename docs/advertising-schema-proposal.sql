@@ -97,9 +97,35 @@ create table if not exists public.ad_events (
 create index if not exists ad_events_campaign_time_idx
   on public.ad_events (campaign_id, occurred_at desc, event_type);
 
+-- Stripe webhook inbox for event deduplication and safe retry after transient failures.
+-- A worker/route must claim rows atomically and retry stale 'processing' rows; the event ID
+-- is globally unique per Stripe account/mode, while livemode is retained for auditing.
+create table if not exists public.ad_stripe_webhook_events (
+  stripe_event_id text primary key,
+  event_type text not null check (char_length(event_type) between 1 and 255),
+  livemode boolean not null,
+  processing_status text not null default 'received' check (
+    processing_status in ('received', 'processing', 'processed', 'failed', 'ignored')
+  ),
+  attempt_count integer not null default 0 check (attempt_count >= 0),
+  processing_started_at timestamptz null,
+  processed_at timestamptz null,
+  last_error text null check (last_error is null or char_length(last_error) <= 1000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ad_stripe_event_processed_time_consistency check (
+    (processing_status = 'processed' and processed_at is not null) or
+    (processing_status <> 'processed' and processed_at is null)
+  )
+);
+
+create index if not exists ad_stripe_webhook_events_retry_idx
+  on public.ad_stripe_webhook_events (processing_status, processing_started_at, created_at);
+
 alter table public.ad_campaigns enable row level security;
 alter table public.ad_orders enable row level security;
 alter table public.ad_events enable row level security;
+alter table public.ad_stripe_webhook_events enable row level security;
 
 -- Intentionally no anon/authenticated policies are added here.
 -- New client roles therefore receive no direct table access until a separately reviewed
@@ -114,6 +140,8 @@ commit;
 -- 3. Confirm advertiser account eligibility, pricing source, VAT/receipts, refunds/disputes.
 -- 3a. Populate package_id/client_type from the server-side catalog only; store net price snapshot.
 -- 3b. Fill tax/total fields only from the configured tax/billing layer; do not hardcode VAT.
--- 4. Add and test server-side authorization and webhook idempotency.
+-- 4. Use ad_stripe_webhook_events as a deduplication inbox; claim/retry events atomically,
+--    recover stale processing rows, and mark processed only after the order transition commits.
+--    Do not rely on the browser success URL or metadata alone as proof of payment.
 -- 5. Add carefully scoped read policy or public server API that returns only approved fields.
 -- 6. This proposal does not create Stripe checkout, webhook handling, moderation UI, or reporting APIs.
