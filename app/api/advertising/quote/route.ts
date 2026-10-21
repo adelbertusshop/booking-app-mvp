@@ -19,32 +19,67 @@ function errorResponse(message: string, status: number) {
   );
 }
 
-export async function POST(request: Request) {
+async function readBoundedBody(request: Request): Promise<
+  | { ok: true; text: string }
+  | { ok: false; response: ReturnType<typeof errorResponse> }
+> {
   const declaredLength = request.headers.get('content-length');
-  if (declaredLength) {
+  if (declaredLength !== null) {
     const parsedLength = Number(declaredLength);
     if (!Number.isFinite(parsedLength) || parsedLength < 0) {
-      return errorResponse('Nieprawidłowy rozmiar żądania.', 400);
+      return { ok: false, response: errorResponse('Nieprawidłowy rozmiar żądania.', 400) };
     }
     if (parsedLength > MAX_REQUEST_BYTES) {
-      return errorResponse('Żądanie jest zbyt duże.', 413);
+      return { ok: false, response: errorResponse('Żądanie jest zbyt duże.', 413) };
     }
   }
 
-  let rawBody: string;
+  if (!request.body) return { ok: true, text: '' };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
   try {
-    rawBody = await request.text();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        void reader.cancel().catch(() => undefined);
+        return { ok: false, response: errorResponse('Żądanie jest zbyt duże.', 413) };
+      }
+      chunks.push(value);
+    }
   } catch {
-    return errorResponse('Nie udało się odczytać danych wyceny.', 400);
+    return { ok: false, response: errorResponse('Nie udało się odczytać danych wyceny.', 400) };
+  } finally {
+    reader.releaseLock();
   }
 
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
-    return errorResponse('Żądanie jest zbyt duże.', 413);
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
   }
+
+  try {
+    return { ok: true, text: new TextDecoder('utf-8', { fatal: true }).decode(bodyBytes) };
+  } catch {
+    return { ok: false, response: errorResponse('Dane wyceny muszą być poprawnym tekstem UTF-8.', 400) };
+  }
+}
+
+export async function POST(request: Request) {
+  const boundedBody = await readBoundedBody(request);
+  if (!boundedBody.ok) return boundedBody.response;
 
   let body: unknown;
   try {
-    body = JSON.parse(rawBody);
+    body = JSON.parse(boundedBody.text);
   } catch {
     return errorResponse('Nieprawidłowe dane wyceny.', 400);
   }
