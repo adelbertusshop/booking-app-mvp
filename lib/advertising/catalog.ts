@@ -1,6 +1,7 @@
 export type AdvertisingClientType = 'salon_w_aplikacji' | 'firma_zewnetrzna';
 export type AdvertisingDurationDays = 7 | 30 | 90;
 export type AdvertisingPlacement = 'salon_catalog' | 'lumar_pages';
+export type AdvertisingPlacementSlot = 'salon_listing' | 'featured_profile' | 'in_app_banner' | 'home_screen_banner' | 'sponsored_carousel';
 
 export type AdvertisingPackageId =
   | 'listing_highlight'
@@ -15,6 +16,7 @@ export interface AdvertisingPackage {
   description: string;
   placement: AdvertisingPlacement;
   placementLabel: string;
+  placementSlot: AdvertisingPlacementSlot;
   features: string[];
   pricesNetPln: Record<AdvertisingClientType, Record<AdvertisingDurationDays, number>>;
 }
@@ -50,6 +52,7 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
     description: 'Wyższa pozycja na liście oraz wyróżnienie profilu.',
     placement: 'salon_catalog',
     placementLabel: 'Lista salonów / firm',
+    placementSlot: 'salon_listing',
     features: ['Wyższa pozycja na liście', 'Wyróżnienie profilu', 'Oznaczenie „Reklama”'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 49, 30: 149, 90: 349 },
@@ -61,7 +64,8 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
     name: 'Wyróżniony profil + badge „Polecany”',
     description: 'Badge „Polecany” i wyróżniony profil.',
     placement: 'salon_catalog',
-    placementLabel: 'Lista salonów / firm',
+    placementLabel: 'Profil salonu / firmy',
+    placementSlot: 'featured_profile',
     features: ['Wyróżniony profil', 'Badge „Polecany”', 'Oznaczenie „Reklama”'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 59, 30: 169, 90: 399 },
@@ -73,7 +77,8 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
     name: 'Baner w aplikacji',
     description: 'Baner graficzny w wybranej sekcji aplikacji.',
     placement: 'lumar_pages',
-    placementLabel: 'Sekcja aplikacji',
+    placementLabel: 'Wybrana sekcja aplikacji',
+    placementSlot: 'in_app_banner',
     features: ['Baner graficzny', 'Wybór obsługiwanej sekcji', 'Oznaczenie „Reklama”'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 129, 30: 349, 90: 799 },
@@ -86,6 +91,7 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
     description: 'Baner na ekranie startowym aplikacji.',
     placement: 'lumar_pages',
     placementLabel: 'Ekran główny',
+    placementSlot: 'home_screen_banner',
     features: ['Widoczne miejsce na ekranie startowym', 'Baner graficzny', 'Oznaczenie „Reklama”'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 199, 30: 599, 90: 1399 },
@@ -97,7 +103,8 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
     name: 'Karuzela / post sponsorowany',
     description: 'Sponsorowany post lub karuzela w aplikacji.',
     placement: 'lumar_pages',
-    placementLabel: 'Treści sponsorowane',
+    placementLabel: 'Karuzela / treści sponsorowane',
+    placementSlot: 'sponsored_carousel',
     features: ['Post sponsorowany lub karuzela', 'Oznaczenie „Reklama”', 'Emisja przez wybrany okres'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 89, 30: 229, 90: 549 },
