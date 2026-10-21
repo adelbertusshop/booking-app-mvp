@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     currency: 'PLN',
     amountNetPln,
     amountNetMinor: Math.round(amountNetPln * 100),
-    tax: 'calculated_by_configured_billing_system',
+    taxStatus: 'not_configured',
     payable: false,
   }, {
     headers: { 'Cache-Control': 'no-store' },
