@@ -9,13 +9,17 @@ create table if not exists public.ad_campaigns (
   id uuid primary key default gen_random_uuid(),
   advertiser_user_id uuid not null references auth.users(id) on delete restrict,
   advertiser_type text not null check (advertiser_type in ('salon', 'external')),
+  client_type text not null check (client_type in ('salon_w_aplikacji', 'firma_zewnetrzna')),
+  package_id text not null check (package_id in (
+    'listing_highlight', 'featured_profile', 'in_app_banner',
+    'home_screen_banner', 'sponsored_carousel'
+  )),
   salon_id uuid null references public.salons(id) on delete restrict,
   placement text not null check (placement in ('salon_catalog', 'lumar_pages')),
   title text not null check (char_length(title) between 3 and 120),
   body text null check (body is null or char_length(body) <= 500),
   destination_url text not null check (char_length(destination_url) <= 2048),
   image_path text null check (image_path is null or char_length(image_path) <= 1024),
-  duration_days integer not null check (duration_days in (7, 30, 90)),
   status text not null default 'draft' check (status in (
     'draft', 'pending_payment', 'pending_review', 'scheduled',
     'active', 'rejected', 'paused', 'completed', 'cancelled'
@@ -47,8 +51,16 @@ create table if not exists public.ad_orders (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.ad_campaigns(id) on delete restrict,
   advertiser_user_id uuid not null references auth.users(id) on delete restrict,
-  amount_minor integer not null check (amount_minor > 0),
-  currency text not null check (currency ~ '^[A-Z]{3}$'),
+  package_id text not null check (package_id in (
+    'listing_highlight', 'featured_profile', 'in_app_banner',
+    'home_screen_banner', 'sponsored_carousel'
+  )),
+  client_type text not null check (client_type in ('salon_w_aplikacji', 'firma_zewnetrzna')),
+  duration_days integer not null check (duration_days in (7, 30, 90)),
+  amount_net_minor integer not null check (amount_net_minor > 0),
+  tax_amount_minor integer null check (tax_amount_minor is null or tax_amount_minor >= 0),
+  amount_total_minor integer null check (amount_total_minor is null or amount_total_minor >= amount_net_minor),
+  currency text not null default 'PLN' check (currency = 'PLN'),
   duration_days integer not null check (duration_days in (7, 30, 90)),
   status text not null default 'pending' check (status in (
     'pending', 'paid', 'failed', 'cancelled', 'refunded', 'disputed'
@@ -89,6 +101,8 @@ commit;
 -- 1. Confirm the production Supabase project and reconcile migration history.
 -- 2. Add updated_at trigger strategy if used by the application.
 -- 3. Confirm advertiser account eligibility, pricing source, VAT/receipts, refunds/disputes.
+-- 3a. Populate package_id/client_type from the server-side catalog only; store net price snapshot.
+-- 3b. Fill tax/total fields only from the configured tax/billing layer; do not hardcode VAT.
 -- 4. Add and test server-side authorization and webhook idempotency.
 -- 5. Add carefully scoped read policy or public server API that returns only approved fields.
 -- 6. This proposal does not create Stripe checkout, webhook handling, moderation UI, or reporting APIs.
