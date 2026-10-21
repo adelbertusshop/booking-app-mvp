@@ -6,11 +6,13 @@ Status: planning/audit note for `feature/lumar-advertising-plan`. This is not a 
 
 - Stripe account visible to the connected Stripe integration: `Lumaria`, account context `acct_1ULQpCPDPK8kCgwX`, live mode.
 - Read-only Stripe API returned zero active products and zero webhook endpoints for the live account.
+- The connected Stripe context could not be queried in test mode: Stripe returned “No account found for the provided stripe_context and livemode.” A usable test-mode account/context must be enabled or connected before checkout tests can run.
 - Repository `package.json` on this branch has no `stripe` dependency.
 - Existing `/api/advertising/quote` is intentionally non-purchasing and returns `payable: false`.
 - `docs/advertising-schema-proposal.sql` is a draft only. Do not apply it until migration history and the actual Supabase project are confirmed.
 - Vercel environment metadata shows `STRIPE_SECRET_KEY` only for Production; no `STRIPE_WEBHOOK_SECRET` was found in the listed project environment variables. Secret values were not read.
-- A server-side auth helper exists at `lib/advertising/auth.ts`, but it has not been wired into routes or build-tested.
+- A server-side auth helper exists at `lib/advertising/auth.ts` and is marked `server-only`.
+- The GitHub Actions build for commit `e9b7ab10b3fad02bb9fd05ac295618cf15a4f38f` passed, and the corresponding Vercel Preview deployment reached `READY`. This validates compilation/build only, not payment behavior.
 
 ## Required architecture
 
@@ -34,6 +36,7 @@ Status: planning/audit note for `feature/lumar-advertising-plan`. This is not a 
 - Confirm which Supabase project is production and reconcile its migration history.
 - Review and approve the schema, including advertiser identity, campaign content validation, order amount snapshots, tax amounts, Stripe IDs and RLS.
 - Establish the platform-admin UUID allowlist in the appropriate environment; default-deny is intentional.
+- Enable/connect a Stripe test-mode account/context that the integration can access.
 - Add a dedicated Preview/test environment with Stripe test secret and test webhook signing secret. Do not copy live credentials to Preview.
 - Confirm the Stripe account's business/tax configuration before accepting real payments.
 
