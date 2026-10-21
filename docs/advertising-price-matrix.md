@@ -42,6 +42,18 @@ Opis: sponsorowany post lub karuzela w aplikacji.
 | salon_w_aplikacji | 89 zł | 229 zł | 549 zł |
 | firma_zewnetrzna | 149 zł | 399 zł | 899 zł |
 
+## Pięć niezależnych miejsc / formatów reklamowych
+Kody techniczne miejsc:
+- `salon_listing` — wyróżnienie pozycji na liście salonów / firm.
+- `featured_profile` — wyróżniony profil z badge „Polecany”.
+- `in_app_banner` — baner w wybranej sekcji aplikacji.
+- `home_screen_banner` — baner na ekranie głównym.
+- `sponsored_carousel` — karuzela / post sponsorowany.
+
+Dwa główne obszary prezentacji:
+- `salon_catalog`: `salon_listing`, `featured_profile`.
+- `lumar_pages`: `in_app_banner`, `home_screen_banner`, `sponsored_carousel`.
+
 ## Reguły produktu
 - Cennik jest zdefiniowany w jednym miejscu: `lib/advertising/catalog.ts`.
 - Kwota do zapłaty musi być wyliczana na serwerze z tego katalogu; kwota z przeglądarki nigdy nie może być źródłem prawdy.
