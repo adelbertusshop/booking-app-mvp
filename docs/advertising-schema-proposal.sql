@@ -20,6 +20,7 @@ create table if not exists public.ad_campaigns (
   body text null check (body is null or char_length(body) <= 500),
   destination_url text not null check (char_length(destination_url) <= 2048),
   image_path text null check (image_path is null or char_length(image_path) <= 1024),
+  duration_days integer not null check (duration_days in (7, 30, 90)),
   status text not null default 'draft' check (status in (
     'draft', 'pending_payment', 'pending_review', 'scheduled',
     'active', 'rejected', 'paused', 'completed', 'cancelled'
@@ -61,7 +62,6 @@ create table if not exists public.ad_orders (
   tax_amount_minor integer null check (tax_amount_minor is null or tax_amount_minor >= 0),
   amount_total_minor integer null check (amount_total_minor is null or amount_total_minor >= amount_net_minor),
   currency text not null default 'PLN' check (currency = 'PLN'),
-  duration_days integer not null check (duration_days in (7, 30, 90)),
   status text not null default 'pending' check (status in (
     'pending', 'paid', 'failed', 'cancelled', 'refunded', 'disputed'
   )),
