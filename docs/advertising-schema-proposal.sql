@@ -16,6 +16,10 @@ create table if not exists public.ad_campaigns (
   )),
   salon_id uuid null references public.salons(id) on delete restrict,
   placement text not null check (placement in ('salon_catalog', 'lumar_pages')),
+  placement_slot text not null check (placement_slot in (
+    'salon_listing', 'featured_profile', 'in_app_banner',
+    'home_screen_banner', 'sponsored_carousel'
+  )),
   title text not null check (char_length(title) between 3 and 120),
   body text null check (body is null or char_length(body) <= 500),
   destination_url text not null check (char_length(destination_url) <= 2048),
@@ -33,8 +37,15 @@ create table if not exists public.ad_campaigns (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint ad_campaign_advertiser_salon_consistency check (
-    (advertiser_type = 'salon' and salon_id is not null) or
-    (advertiser_type = 'external' and salon_id is null)
+    (advertiser_type = 'salon' and client_type = 'salon_w_aplikacji' and salon_id is not null) or
+    (advertiser_type = 'external' and client_type = 'firma_zewnetrzna' and salon_id is null)
+  ),
+  constraint ad_campaign_package_slot_consistency check (
+    (package_id = 'listing_highlight' and placement_slot = 'salon_listing' and placement = 'salon_catalog') or
+    (package_id = 'featured_profile' and placement_slot = 'featured_profile' and placement = 'salon_catalog') or
+    (package_id = 'in_app_banner' and placement_slot = 'in_app_banner' and placement = 'lumar_pages') or
+    (package_id = 'home_screen_banner' and placement_slot = 'home_screen_banner' and placement = 'lumar_pages') or
+    (package_id = 'sponsored_carousel' and placement_slot = 'sponsored_carousel' and placement = 'lumar_pages')
   ),
   constraint ad_campaign_dates_consistency check (
     (starts_at is null and ends_at is null) or
