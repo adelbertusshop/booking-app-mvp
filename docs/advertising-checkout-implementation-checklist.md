@@ -59,3 +59,17 @@ This gate does not claim to complete image uploads, ad impression/click analytic
 
 ## Completion evidence
 Attach the tested branch commit, CI/build results, migration target confirmation, Stripe test-mode confirmation (without secrets), webhook delivery result, and the resulting database status transition. If any evidence is unavailable, mark the gate blocked rather than guessing.
+
+## Live Supabase read-only verification — 2026-10-24
+
+- Read-only inspection succeeded against project `cnfrbelkckbtkzhwyxqm` (`wojciech Wojownik`, region `eu-west-1`, status `ACTIVE_HEALTHY`). No credentials or secret values were read.
+- The live migration history ends at `20261024115901 drop_global_appointment_time_unique`. It does not include `20261022160000_lumar_advertising`.
+- Live `public` schema inspection found no `ad_campaigns`, `ad_orders`, `ad_events`, or `ad_stripe_webhook_events` tables. The advertising migration remains unapplied.
+- Security advisor reported RLS enabled with no policies on `public.admin_settings`, `public.bookings`, and `public.providers`; it also reported Supabase Auth leaked-password protection disabled. These are findings to review separately, not a reason to weaken RLS or add broad policies.
+- Existing live policies visible in the queried subset were on `appointments` and `salons`; no advertising table policies can be reviewed until those tables exist.
+- This verification is read-only. No SQL writes, migrations, production configuration changes, payments, or releases were performed.
+
+## Updated gate decision
+
+**Still blocked before Checkout implementation:** the database contract has not been applied to a confirmed Preview database, and the draft migration does not yet provide the atomic database operations needed for safe order creation and webhook transitions. Do not implement a route that creates payable Stripe sessions until that contract is reviewed and available in an isolated Preview database. Keep `payable: false` and do not enable the purchase button.
+
