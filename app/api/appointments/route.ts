@@ -181,7 +181,10 @@ export async function POST(req: Request) {
     }]).select().single();
     if (error) {
       if (error.code === '23P01') return NextResponse.json({ error: 'Ten termin został właśnie zajęty. Wybierz inny termin.' }, { status: 409 });
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      // Do not expose raw database errors to public booking clients.
+      console.error('[APPOINTMENT INSERT ERROR]', { code: error.code, message: error.message, details: error.details });
+      if (error.code === '23505') return NextResponse.json({ error: 'Nie udało się zapisać rezerwacji z powodu konfliktu danych. Spróbuj ponownie lub wybierz inny termin.' }, { status: 409 });
+      return NextResponse.json({ error: 'Nie udało się zapisać rezerwacji. Spróbuj ponownie później.' }, { status: 500 });
     }
 
     const safeClientName = escapeHtml(clientName), safeEmail = escapeHtml(email), safePhone = escapeHtml(phone), safeServiceName = escapeHtml(serviceName), safeSalonName = escapeHtml(salonName), safeDate = escapeHtml(date), safeTime = escapeHtml(time);
