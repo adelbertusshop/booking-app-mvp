@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   }
 
   // The catalog amount is the approved customer-facing amount. Never add tax on top.
-  // Keep the legacy amountNet* fields for compatibility while payment code is being built.
+  // Legacy amountNet* names remain for API compatibility; payment amount is explicit below.
   const amountNetPln = getAdvertisingNetPrice(
     selectedPackage.id,
     clientType as AdvertisingClientType,
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     amountNetMinor: amountNetPln * 100,
     amountPayablePln: amountNetPln,
     amountPayableMinor: amountNetPln * 100,
-    taxStatus: 'not_configured',
+    taxStatus: 'included_in_catalog_price',
     payable: false,
   }, {
     headers: { 'Cache-Control': 'no-store' },
