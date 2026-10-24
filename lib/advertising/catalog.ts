@@ -41,9 +41,10 @@ export const ADVERTISING_CLIENT_TYPES: {
 ];
 
 /**
- * Single source of truth for advertising package prices.
- * All values are NET PLN exactly as approved by the product owner.
- * Do not add VAT here; tax calculation must use the configured billing system.
+ * Single source of truth for advertising package amounts approved by the product owner.
+ * Keep every listed amount unchanged. The amount shown in this catalog is the amount
+ * the advertiser is expected to pay; do not add VAT or another tax surcharge to it.
+ * Tax/accounting reporting is a separate concern and must not change the checkout amount.
  */
 export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
   {
