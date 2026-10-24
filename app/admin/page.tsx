@@ -549,10 +549,10 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <div className="flex space-x-4 border-b border-zinc-800 pb-2 overflow-x-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 border-b border-zinc-800 pb-3">
           {(['dashboard', 'calendar', 'appointments', 'services', 'hours', 'notifications', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`text-sm font-semibold pb-1 transition-all text-center ${activeTab === tab ? 'text-amber-400 border-b-2 border-amber-400' : 'text-zinc-500 hover:text-amber-200'}`}>
+              className={`min-w-0 rounded-lg border px-2 py-2 text-sm font-semibold transition-all text-center ${activeTab === tab ? 'bg-amber-500/10 text-amber-400 border-amber-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-amber-200 hover:border-zinc-700'}`}>
               {tab === 'dashboard' ? (
                 <span className="text-center leading-tight">📊<br /><span className="text-xs font-black tracking-wider">Dashboard</span></span>
               ) : tab === 'calendar' ? (
@@ -579,23 +579,14 @@ export default function AdminPage() {
               <p className="text-amber-200 text-sm animate-pulse">Wczytywanie statystyk...</p>
             ) : (
               <>
-                {/* Baner limitu FREE */}
+                {/* Informacja zamiast nieaktualnego limitu rezerwacji */}
                 {monthReservationCount >= 45 && (
-                  <div className={`rounded-xl border px-5 py-4 flex items-start gap-3 ${
-                    monthReservationCount >= 50
-                      ? 'bg-red-950/40 border-red-500/50'
-                      : 'bg-amber-950/40 border-amber-500/50'
-                  }`}>
-                    <span className="text-xl flex-shrink-0">{monthReservationCount >= 50 ? '🔒' : '⚠️'}</span>
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 px-5 py-4 flex items-start gap-3">
+                    <span className="text-xl flex-shrink-0">📈</span>
                     <div>
-                      <p className={`text-sm font-bold ${monthReservationCount >= 50 ? 'text-red-400' : 'text-amber-400'}`}>
-                        {monthReservationCount >= 50
-                          ? 'Limit FREE został osiągnięty'
-                          : 'Zbliżasz się do limitu FREE'}
-                      </p>
+                      <p className="text-sm font-bold text-amber-400">Dużo rezerwacji w tym miesiącu</p>
                       <p className="text-xs text-zinc-400 mt-0.5">
-                        Wykorzystano <strong>{monthReservationCount} z 50</strong> rezerwacji w tym miesiącu.
-                        {monthReservationCount >= 50 && ' Klienci nie mogą teraz rezerwować przez LUMAR.'}
+                        Zarejestrowano <strong>{monthReservationCount}</strong> rezerwacji. Miesięczny limit rezerwacji nie jest obecnie aktywny.
                       </p>
                     </div>
                   </div>
