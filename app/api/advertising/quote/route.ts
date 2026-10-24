@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     amountNetMinor: amountNetPln * 100,
     amountPayablePln: amountNetPln,
     amountPayableMinor: amountNetPln * 100,
-    taxStatus: 'included_in_catalog_price',
+    taxStatus: 'no_additional_tax_surcharge',
     payable: false,
   }, {
     headers: { 'Cache-Control': 'no-store' },
