@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 function passwordPolicyError(password: string): string | null {
@@ -89,6 +89,7 @@ const DEFAULT_HOURS: SalonHour[] = DAY_NAMES.map((_, i) => ({
 interface AuthUser {
   id: string;
   email?: string | null;
+  user_metadata?: { salon_name?: unknown } | null;
 }
 
 interface MonthDataItem {
@@ -153,6 +154,7 @@ export default function AdminPage() {
   const [newServiceDuration, setNewServiceDuration] = useState('60');
   const [newServicePrice, setNewServicePrice] = useState('');
   const [addingService, setAddingService] = useState(false);
+  const loadingSalonUsers = useRef(new Set<string>());
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -169,15 +171,58 @@ export default function AdminPage() {
   }, []);
 
   const loadSalonData = async (currentUser: AuthUser) => {
+    // Avoid duplicate profile creation when the initial session and auth listener
+    // resolve at nearly the same time.
+    if (loadingSalonUsers.current.has(currentUser.id)) return;
+    loadingSalonUsers.current.add(currentUser.id);
     setLoadingData(true);
-    let { data: salon } = await supabase.from('salons').select('*').eq('user_id', currentUser.id).single();
-    if (!salon) {
-      const { data: newSalon } = await supabase.from('salons')
-        .insert([{ user_id: currentUser.id, admin_email: currentUser.email || '', salon_name: 'Mój Salon' }])
-        .select().single();
-      if (newSalon) salon = newSalon;
-    }
-    if (salon) {
+
+    try {
+      const { data: existingSalon, error: salonLookupError } = await supabase
+        .from('salons').select('*').eq('user_id', currentUser.id).maybeSingle();
+
+      if (salonLookupError) {
+        console.error('[SALON PROFILE LOOKUP ERROR]', salonLookupError);
+        setError('Nie udało się wczytać profilu salonu. Odśwież stronę i spróbuj ponownie.');
+        return;
+      }
+
+      let salon = existingSalon;
+      if (!salon) {
+        const requestedName = typeof currentUser.user_metadata?.salon_name === 'string' &&
+          currentUser.user_metadata.salon_name.trim()
+          ? currentUser.user_metadata.salon_name.trim()
+          : 'Mój Salon';
+        const baseSlug = toSlug(requestedName);
+        const salonPayload = {
+          user_id: currentUser.id,
+          admin_email: currentUser.email || '',
+          salon_name: requestedName,
+          slug: baseSlug || null,
+          whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!',
+        };
+
+        let { data: newSalon, error: createSalonError } = await supabase
+          .from('salons').insert([salonPayload]).select().single();
+
+        // A duplicate public URL should not silently prevent account setup.
+        if (createSalonError?.code === '23505' && baseSlug) {
+          const fallbackSlug = `${baseSlug}-${currentUser.id.slice(0, 6)}`;
+          const retry = await supabase.from('salons')
+            .insert([{ ...salonPayload, slug: fallbackSlug }]).select().single();
+          newSalon = retry.data;
+          createSalonError = retry.error;
+        }
+
+        if (createSalonError || !newSalon) {
+          console.error('[SALON PROFILE CREATE ERROR]', createSalonError);
+          setError('Konto jest aktywne, ale nie udało się utworzyć profilu salonu. Odśwież panel; jeśli problem wróci, skontaktuj się z pomocą.');
+          return;
+        }
+        salon = newSalon;
+      }
+
+      setError('');
       setSalonId(salon.id);
       setSalonName(salon.salon_name || 'Mój Salon');
       setSalonSlug(salon.slug || '');
@@ -194,8 +239,10 @@ export default function AdminPage() {
       wd.setDate(wd.getDate() + diff);
       wd.setHours(0,0,0,0);
       await fetchCalendar(salon.id, wd);
+    } finally {
+      loadingSalonUsers.current.delete(currentUser.id);
+      setLoadingData(false);
     }
-    setLoadingData(false);
   };
 
   const fetchAppointments = async (sid: string) => {
@@ -310,19 +357,53 @@ export default function AdminPage() {
     if (!salonId) return;
     setSavingHours(true);
 
-    // Usuń stare i wstaw nowe
-    await supabase.from('salon_hours').delete().eq('salon_id', salonId);
-    const toInsert = hours.map((h) => ({
-      salon_id: salonId,
-      day_of_week: h.day_of_week,
-      open_time: h.open_time,
-      close_time: h.close_time,
-      is_working: h.is_working,
-    }));
-    const { error } = await supabase.from('salon_hours').insert(toInsert);
-    if (error) alert('Błąd zapisu: ' + error.message);
-    else alert('✅ Godziny pracy zapisane!');
-    setSavingHours(false);
+    try {
+      // Never delete the whole schedule before confirming that replacement rows
+      // can be saved. Update existing days and insert only missing days.
+      const { data: existingRows, error: lookupError } = await supabase
+        .from('salon_hours')
+        .select('id, day_of_week')
+        .eq('salon_id', salonId);
+
+      if (lookupError) {
+        console.error('[SALON HOURS LOOKUP ERROR]', lookupError);
+        alert('Nie udało się odczytać godzin pracy. Żadne godziny nie zostały zmienione.');
+        return;
+      }
+
+      const idByDay = new Map<number, string>();
+      (existingRows || []).forEach((row) => {
+        if (!idByDay.has(row.day_of_week)) idByDay.set(row.day_of_week, row.id);
+      });
+
+      for (const h of hours) {
+        const values = {
+          open_time: h.open_time,
+          close_time: h.close_time,
+          is_working: h.is_working,
+        };
+        const existingId = h.id || idByDay.get(h.day_of_week);
+        const result = existingId
+          ? await supabase.from('salon_hours').update(values).eq('id', existingId).eq('salon_id', salonId)
+          : await supabase.from('salon_hours').insert([{
+              salon_id: salonId,
+              day_of_week: h.day_of_week,
+              ...values,
+            }]);
+
+        if (result.error) {
+          console.error('[SALON HOURS SAVE ERROR]', result.error);
+          await fetchHours(salonId);
+          alert('Nie udało się zapisać wszystkich godzin. Istniejące godziny nie zostały masowo usunięte; sprawdź ustawienia i spróbuj ponownie.');
+          return;
+        }
+      }
+
+      await fetchHours(salonId);
+      alert('✅ Godziny pracy zapisane!');
+    } finally {
+      setSavingHours(false);
+    }
   };
 
   const updateHour = (dayIndex: number, field: keyof SalonHour, value: string | boolean) => {
@@ -381,12 +462,22 @@ export default function AdminPage() {
       if (!salonNameReg.trim()) { setError('Podaj nazwę salonu.'); return; }
       const passwordError = passwordPolicyError(password);
       if (passwordError) { setError(passwordError); return; }
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { salon_name: salonNameReg.trim() } },
+      });
       if (error) { setError(error.message); return; }
       if (data?.user) {
-        await supabase.from('salons').insert([{ user_id: data.user.id, admin_email: email.trim(), salon_name: salonNameReg.trim(), slug: toSlug(salonNameReg.trim()), whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!' }]);
-        alert('Konto zarejestrowane! Zaloguj się.');
-        setIsRegistering(false); setSalonNameReg('');
+        // The profile is created after a confirmed sign-in by loadSalonData.
+        // This also works when email confirmation means signUp returns no session.
+        alert(data.session
+          ? 'Konto zarejestrowane. Przygotowuję profil salonu.'
+          : 'Konto zarejestrowane. Potwierdź adres e-mail, a po zalogowaniu profil salonu zostanie utworzony automatycznie.');
+        setIsRegistering(false);
+        setSalonNameReg('');
+      } else {
+        setError('Nie udało się utworzyć konta. Spróbuj ponownie.');
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -538,6 +629,7 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-black text-amber-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
+        {error && <p role="status" className="rounded-lg border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-300">{error}</p>}
         <div className="flex justify-between items-center border-b border-amber-500/30 pb-4">
           <div>
             <h1 className="text-2xl font-bold text-amber-400">{salonName || 'Panel Salonu'}</h1>
