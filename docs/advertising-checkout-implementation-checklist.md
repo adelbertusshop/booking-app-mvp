@@ -5,10 +5,10 @@ Status: engineering gate for `feature/lumar-advertising-plan`. This document doe
 ## Current verified state
 
 - `POST /api/advertising/quote` validates package/client type/duration against the catalog and returns `payable: false`.
-- `lib/advertising/catalog.ts` is the current price source. Prices are NET PLN; tax is explicitly not configured.
+- `lib/advertising/catalog.ts` is the single price source. Preserve all existing catalog amounts; the quote API returns the same amount as `amountPayablePln`/`amountPayableMinor` and declares `taxStatus: no_additional_tax_surcharge`. Do not add a tax surcharge to the customer-facing amount. Keep accounting/tax reporting separate and do not infer a tax rate from this API label.
 - `supabase/migrations/20261022160000_lumar_advertising.sql` is present in this branch, but the active Supabase migration history does not include it. Do not run it until the Preview/Production database mapping is confirmed.
 - The live schema inspected in Supabase contains `public.salons` with `user_id` referencing `auth.users(id)`; no advertising tables were present.
-- The remote branch's `package.json` does not include `stripe`; Checkout and webhook routes have not been confirmed.
+- The remote branch's `package.json` does not include the Stripe SDK; Checkout and webhook routes are absent. Do not claim payments are implemented. If using Stripe's REST API directly, explicitly implement and test signature verification and idempotency; if adding the SDK, update the matching lockfile with the repository's package manager.
 - Vercel has separate Stripe key entries for Production and Preview/Development. Their values were not read, so their actual test/live modes are not independently verified.
 - The visible Vercel environment metadata does not list `STRIPE_WEBHOOK_SECRET` or `LUMAR_PLATFORM_ADMIN_USER_IDS`.
 
@@ -25,7 +25,7 @@ Status: engineering gate for `feature/lumar-advertising-plan`. This document doe
 - Add database-enforced atomic operations for order/campaign creation and webhook status transitions; avoid multi-request best-effort rollback.
 - Webhook event claiming must be atomic (unique event ID plus guarded status transition/lease), support retry after failure, and mark an event processed only after the order transition commits.
 - Enforce snapshot consistency for package, duration, client type, campaign, and advertiser. Prices must come from the server catalog, never request payloads.
-- Decide tax/accounting semantics before charging. Do not invent a VAT rate. Verify `amount_net_minor`, `tax_amount_minor`, and `amount_total_minor` together against Stripe's amounts.
+- Preserve the approved customer-facing catalog amount without adding a tax surcharge. Before charging, define how accounting fields map to that approved amount with a qualified accounting review if needed; do not invent a VAT rate or silently reinterpret legacy `amountNet*` fields. Verify the charged Stripe amount against the approved payable amount.
 - Keep RLS enabled and no direct client writes to payment/order/event tables. Any privileged RPC must have a fixed safe `search_path`, minimal grants, and explicit authorization assumptions documented.
 
 ### Gate 2 — server-side Checkout
@@ -47,7 +47,7 @@ Status: engineering gate for `feature/lumar-advertising-plan`. This document doe
 - Handle cancelled/failed/expired sessions and document refund/dispute transitions.
 
 ### Gate 4 — tests and preview release
-- Unit tests: catalog-only price derivation, invalid package/duration/client type, salon ownership, missing auth, invalid campaign content, tax mismatch.
+- Unit tests: catalog-only price derivation, unchanged approved payable amount, invalid package/duration/client type, salon ownership, missing auth, invalid campaign content, amount mismatch.
 - Integration tests: DB failure, concurrent duplicate Checkout request, invalid signature, duplicate webhook, out-of-order events, failed processing followed by retry.
 - Stripe test-mode Preview run: successful payment, cancelled checkout, expired session, repeated webhook delivery.
 - Run typecheck, lint, tests, and production build against the branch commit; report actual outputs, not assumed results.
