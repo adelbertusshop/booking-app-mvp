@@ -87,3 +87,17 @@ Attach the tested branch commit, CI/build results, migration target confirmation
 - A branch-specific Vercel environment-variable filter returned no branch-scoped variables. Project-level Preview/Development Stripe entries exist, but their values were not inspected. Do not infer test mode from the variable names or target alone.
 - The next engineering task remains the reviewed transaction contract for orders, campaign snapshots, and idempotent webhook transitions. Until that contract is implemented and available in an isolated test database, keep the quote API non-payable and do not enable Checkout.
 
+
+
+## Product decision — no paid Supabase test branch — 2026-10-24
+
+- The product owner declined creation of a separate Supabase branch because of the additional hourly cost.
+- Do not create or bill a Supabase branch. Keep the current live database unchanged during implementation.
+- The product owner intends to apply the advertising database migration as part of the eventual production rollout. This is not permission to apply it now; obtain explicit release approval at that time and reconcile the live migration history immediately before execution.
+- Because there is no isolated Supabase database, do not implement or enable a payable Checkout flow that depends on unverified live database writes. Continue with code review, validation, tests that do not mutate live data, and Preview-only checks. Keep quote responses `payable: false` until the database transaction contract and release procedure are approved.
+
+## CI coverage review — 2026-10-24
+
+- The current GitHub Actions workflow runs `npm ci`, `npm run lint`, and `npm run build` on Node.js 20.
+- The workflow does not run a dedicated unit-test or integration-test command, and does not run an explicit `tsc --noEmit` typecheck step.
+- Build success alone must not be reported as proof of payment correctness, webhook idempotency, or database transaction safety. Add suitable test coverage before enabling Checkout.
