@@ -73,3 +73,10 @@ Attach the tested branch commit, CI/build results, migration target confirmation
 
 **Still blocked before Checkout implementation:** the database contract has not been applied to a confirmed Preview database, and the draft migration does not yet provide the atomic database operations needed for safe order creation and webhook transitions. Do not implement a route that creates payable Stripe sessions until that contract is reviewed and available in an isolated Preview database. Keep `payable: false` and do not enable the purchase button.
 
+## Follow-up verification — 2026-10-24 15:42 UTC
+
+- Vercel Preview for branch `feature/lumar-advertising-plan`, commit `35bbf1d100e59854e2bbda7cfe12d62d83e1ce9c`, reached `READY`. This verifies deployment state only; it does not prove Stripe Checkout or the database workflow works.
+- A fresh metadata-only environment-variable listing did not show any variables scoped specifically to this Git branch. The listing showed separate `STRIPE_SECRET_KEY` entries for Production and Preview/Development, plus publishable-key entries for those targets. Values were not decrypted or inspected.
+- `STRIPE_WEBHOOK_SECRET` was still absent from the visible environment-variable metadata. Do not create a webhook endpoint or enable payment until a test endpoint and its signing secret are configured in Preview.
+- No database writes were performed. The advertising migration remains unapplied; no Checkout/webhook routes were added by this verification.
+
