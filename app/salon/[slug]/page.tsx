@@ -1,13 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
 
 interface Service { id: string; name: string; duration_minutes: number; price?: number; }
 interface Salon { id: string; salon_name: string; slug: string; }
@@ -43,6 +38,7 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
   const [services, setServices] = useState<Service[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [serviceLoadError, setServiceLoadError] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [date, setDate] = useState('');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -56,29 +52,49 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function init() {
-      // Szukaj po slug
-      const { data: salonData, error } = await supabase
-        .from('salons')
-        .select('id, salon_name, slug')
-        .eq('slug', slug)
-        .single();
+      try {
+        // Use the public API so salon visibility and service access are
+        // handled consistently on the server instead of relying on browser RLS.
+        const salonResponse = await fetch(`/api/salons?slug=${encodeURIComponent(slug)}`);
+        if (!salonResponse.ok) {
+          if (!cancelled) setNotFound(true);
+          return;
+        }
 
-      if (error || !salonData) { setNotFound(true); setLoadingInit(false); return; }
-      setSalon(salonData);
+        const salonPayload = await salonResponse.json();
+        const salonData = Array.isArray(salonPayload.salons) ? salonPayload.salons[0] : null;
+        if (!salonData) {
+          if (!cancelled) setNotFound(true);
+          return;
+        }
 
-      const { data: svcs } = await supabase
-        .from('services')
-        .select('id, name, duration_minutes, price')
-        .eq('salon_id', salonData.id)
-        .order('name');
+        if (cancelled) return;
+        setSalon(salonData);
 
-      const list = svcs || [];
-      setServices(list);
-      if (list.length > 0) setSelectedServiceId(String(list[0].id));
-      setLoadingInit(false);
+        const servicesResponse = await fetch(`/api/services?salonId=${encodeURIComponent(salonData.id)}`);
+        if (!servicesResponse.ok) {
+          if (!cancelled) setServiceLoadError(true);
+          return;
+        }
+
+        const servicesPayload = await servicesResponse.json();
+        const list: Service[] = Array.isArray(servicesPayload.services) ? servicesPayload.services : [];
+        if (cancelled) return;
+        setServices(list);
+        setServiceLoadError(false);
+        if (list.length > 0) setSelectedServiceId(String(list[0].id));
+      } catch {
+        if (!cancelled) setServiceLoadError(true);
+      } finally {
+        if (!cancelled) setLoadingInit(false);
+      }
     }
+
     init();
+    return () => { cancelled = true; };
   }, [slug]);
 
   useEffect(() => {
@@ -158,10 +174,15 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
           <p className="text-zinc-500 text-sm">Zarezerwuj wizytę online</p>
         </div>
 
-        {services.length === 0 ? (
+        {serviceLoadError ? (
+          <div className="text-center py-8 space-y-3">
+            <p className="text-4xl">⚠️</p>
+            <p className="text-zinc-400 text-sm">Nie udało się pobrać oferty salonu. Odśwież stronę za chwilę.</p>
+          </div>
+        ) : services.length === 0 ? (
           <div className="text-center py-8 space-y-3">
             <p className="text-4xl">🕐</p>
-            <p className="text-zinc-400 text-sm">Salon przygotowuje ofertę.<br />Wróć wkrótce.</p>
+            <p className="text-zinc-400 text-sm">Salon nie dodał jeszcze usług. Wróć wkrótce.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
