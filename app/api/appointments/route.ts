@@ -174,19 +174,6 @@ export async function POST(req: Request) {
     const { data: conflict } = await supabase.from('appointments').select('id').eq('salon_id', salonId).neq('status', 'cancelled').lt('start_time', endIso).gt('end_time', startIso).limit(1);
     if (conflict && conflict.length > 0) return NextResponse.json({ error: 'Ten termin jest już zajęty.' }, { status: 409 });
 
-    const [targetYear, targetMonth] = date.split('-').slice(0, 2).map(Number);
-    const monthStartDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
-    const nextMonthDate = targetMonth === 12 ? `${targetYear + 1}-01-01` : `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
-    const monthStart = warsawDateTimeToUtc(monthStartDate, '00:00');
-    const monthEnd = warsawDateTimeToUtc(nextMonthDate, '00:00');
-    if (!monthStart || !monthEnd) return NextResponse.json({ error: 'Nie udało się ustalić granic miesiąca.' }, { status: 500 });
-    const { count: monthCount, error: monthCountError } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('salon_id', salonId).neq('status', 'cancelled').gte('start_time', monthStart.toISOString()).lt('start_time', monthEnd.toISOString());
-    if (monthCountError || monthCount === null) {
-      console.error('[APPOINTMENT MONTHLY LIMIT CHECK ERROR]', monthCountError);
-      return NextResponse.json({ error: 'Nie udało się zweryfikować limitu rezerwacji. Spróbuj ponownie.' }, { status: 500 });
-    }
-    if ((monthCount || 0) >= 50) return NextResponse.json({ error: 'Salon osiągnął limit 50 rezerwacji w tym miesiącu (plan FREE). Skontaktuj się z właścicielem salonu.', limitReached: true }, { status: 429 });
-
     const { data: appointment, error } = await supabase.from('appointments').insert([{
       salon_id: salonId, start_time: startIso, end_time: endIso, client_name: typeof clientName === 'string' ? clientName.trim() : clientName,
       client_email: typeof email === 'string' ? email.trim().toLowerCase() : email, client_phone: typeof phone === 'string' ? phone.trim() : phone,
