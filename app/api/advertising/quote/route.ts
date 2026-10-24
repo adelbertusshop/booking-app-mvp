@@ -110,6 +110,8 @@ export async function POST(request: Request) {
     return errorResponse('Nieznany pakiet reklamowy.', 400);
   }
 
+  // The catalog amount is the approved customer-facing amount. Never add tax on top.
+  // Keep the legacy amountNet* fields for compatibility while payment code is being built.
   const amountNetPln = getAdvertisingNetPrice(
     selectedPackage.id,
     clientType as AdvertisingClientType,
@@ -124,6 +126,8 @@ export async function POST(request: Request) {
     currency: 'PLN',
     amountNetPln,
     amountNetMinor: amountNetPln * 100,
+    amountPayablePln: amountNetPln,
+    amountPayableMinor: amountNetPln * 100,
     taxStatus: 'not_configured',
     payable: false,
   }, {
