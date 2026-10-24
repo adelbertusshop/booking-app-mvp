@@ -80,3 +80,10 @@ Attach the tested branch commit, CI/build results, migration target confirmation
 - `STRIPE_WEBHOOK_SECRET` was still absent from the visible environment-variable metadata. Do not create a webhook endpoint or enable payment until a test endpoint and its signing secret are configured in Preview.
 - No database writes were performed. The advertising migration remains unapplied; no Checkout/webhook routes were added by this verification.
 
+## Follow-up verification — latest branch deployment
+
+- The latest Preview deployment for this branch is `READY` at commit `ee10a08511d7aafd562d3156cd7c6963d10017ec`. Preview URL: `https://booking-app-gl0u6h008-grzegorzs-projects-dbc76bba.vercel.app`.
+- This commit contains documentation only. Its successful deployment is not a test of checkout, database transactions, or webhook handling.
+- A branch-specific Vercel environment-variable filter returned no branch-scoped variables. Project-level Preview/Development Stripe entries exist, but their values were not inspected. Do not infer test mode from the variable names or target alone.
+- The next engineering task remains the reviewed transaction contract for orders, campaign snapshots, and idempotent webhook transitions. Until that contract is implemented and available in an isolated test database, keep the quote API non-payable and do not enable Checkout.
+
