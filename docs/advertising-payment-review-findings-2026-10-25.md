@@ -61,3 +61,23 @@ Still required before release:
 - keep quote response `payable: false` until all gates pass.
 
 This remains a draft-only code change. No database migration was applied and no live payment configuration was changed.
+
+## Follow-up audit — order creation and route inventory (2026-10-25)
+
+Read-only inspection of the feature branch confirmed:
+
+- `POST /api/advertising/quote` validates package, client type, and duration against the server-side catalog, returns the catalog amount, and keeps `payable: false`. It does not insert an order.
+- The expected route files `app/api/advertising/checkout/route.ts` and `app/api/advertising/webhook/route.ts` were not found at those paths. No working Checkout or signed-webhook implementation has therefore been verified by this audit.
+- `package.json` does not list the official `stripe` SDK dependency.
+- `lib/advertising/auth.ts` provides server-side Supabase bearer-token verification and salon-ownership checking helpers. Their presence alone does not prove that order creation is implemented or that every future write route will use them.
+- The review did not verify a server-side path that creates `ad_orders`, persists an immutable catalog-derived amount, or associates an order with a Checkout Session. This is an implementation gap to close before checkout work proceeds.
+
+### Required next implementation sequence
+
+1. Define and test the server-side order-creation contract first: authenticate with Supabase Auth; validate package/client type/duration against the catalog; derive price and PLN currency only on the server; validate salon ownership where applicable; persist a pending order with a stable idempotency strategy before creating Checkout; never accept a price, paid status, or privileged user ID from the browser.
+2. Add the official Stripe SDK through the repository's package manager and commit the generated lockfile; do not hand-edit the lockfile.
+3. Implement Checkout and the signed webhook only after the test database/schema and Preview secrets are verified. Keep webhook signature verification over the raw body and use the atomic database transition only after all Stripe/order checks pass.
+4. Add automated tests for authentication, ownership, tampered client price, idempotent order creation, Checkout failure after order creation, invalid signature, duplicate webhook, unpaid session, currency/amount mismatch, and moderation state.
+5. Keep `payable: false`, do not apply either draft migration, and do not change Production configuration until test evidence and explicit release approval exist.
+
+This was a source inspection and documentation update only. No tests were executed, no database was changed, and no payment was created.
