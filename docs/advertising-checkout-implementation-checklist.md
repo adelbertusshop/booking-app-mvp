@@ -101,3 +101,12 @@ Attach the tested branch commit, CI/build results, migration target confirmation
 - The current GitHub Actions workflow runs `npm ci`, `npm run lint`, and `npm run build` on Node.js 20.
 - The workflow does not run a dedicated unit-test or integration-test command, and does not run an explicit `tsc --noEmit` typecheck step.
 - Build success alone must not be reported as proof of payment correctness, webhook idempotency, or database transaction safety. Add suitable test coverage before enabling Checkout.
+
+
+## CI verification — 2026-10-25
+
+- Added `npm run typecheck` using `tsc --noEmit` in commit `66cdf8408ddc824e6e14157926ac57d0eda06367`.
+- Added an explicit TypeScript typecheck step to GitHub Actions in commit `ceda80030bf5d251d65cb1243c2a4a736389e99c`.
+- GitHub Actions run `40187703275` completed successfully: dependency installation, lint, typecheck, and build all passed.
+- This confirms the current branch passes those CI steps only. Dedicated unit/integration tests for advertising pricing, authorization, Checkout, webhook retries, and atomic database transitions are still not present; payment readiness remains blocked.
+- No migration, Supabase write, Stripe payment, production environment change, or merge to `main` was performed.
