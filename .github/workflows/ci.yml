@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Advertising catalog tests
+        run: npm test
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
