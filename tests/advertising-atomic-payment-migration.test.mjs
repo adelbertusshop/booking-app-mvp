@@ -16,6 +16,9 @@ test('payment transition checks exact session, currency, amount, and environment
   assert.match(migration, /p_event_livemode is distinct from p_expected_livemode/i);
   assert.match(migration, /stripe_checkout_session_id is distinct from p_checkout_session_id/i);
   assert.match(migration, /p_amount_total_minor <> v_expected_amount/i);
+  assert.match(migration, /v_campaign\.package_id <> v_order\.package_id/i);
+  assert.match(migration, /v_campaign\.client_type <> v_order\.client_type/i);
+  assert.match(migration, /v_campaign\.duration_days <> v_order\.duration_days/i);
   assert.match(migration, /upper\(coalesce\(p_currency, ''\)\) <> 'PLN'/i);
 });
 
