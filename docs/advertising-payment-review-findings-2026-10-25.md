@@ -81,3 +81,13 @@ Read-only inspection of the feature branch confirmed:
 5. Keep `payable: false`, do not apply either draft migration, and do not change Production configuration until test evidence and explicit release approval exist.
 
 This was a source inspection and documentation update only. No tests were executed, no database was changed, and no payment was created.
+
+## Follow-up — quote regression coverage (2026-10-25)
+
+Added static regression assertions in `tests/advertising-quote-safety.test.mjs` to guard that:
+- the quote amount is computed by `getAdvertisingNetPrice` from the server-side catalog;
+- the route does not read a client-submitted amount/price field;
+- package, client type, and duration remain validated against server-side allowlists;
+- the route remains non-payable and non-cacheable.
+
+These are source-text assertions, not runtime/API integration tests. The test suite has not been executed in this environment, so no test pass is claimed. Checkout remains disabled and all database/Production changes remain out of scope.
