@@ -33,6 +33,13 @@ test('advertising authorization is server-only and fails closed when server conf
   assert.match(authModule, /status:\s*401/);
 });
 
+test('salon ownership is verified against the authenticated user and database errors fail closed', () => {
+  assert.match(authModule, /\.from\('salons'\)/);
+  assert.match(authModule, /\.eq\('id', salonId\)/);
+  assert.match(authModule, /\.eq\('user_id', userId\)/);
+  assert.match(authModule, /if\s*\(error\)\s*\{\s*return\s*\{\s*owned:\s*false/);
+});
+
 test('platform admin access uses an explicit allowlist and denies by default', () => {
   assert.match(authModule, /LUMAR_PLATFORM_ADMIN_USER_IDS/);
   assert.match(authModule, /return configuredIds\.includes\(userId\.toLowerCase\(\)\)/);
