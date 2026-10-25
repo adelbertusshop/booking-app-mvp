@@ -72,3 +72,16 @@ Webhook musi osobno weryfikować podpis Stripe na surowym body, środowisko test
 - Nie scalać tej gałęzi do `main` bez osobnej zgody.
 
 Ten dokument opisuje kontrakt do wdrożenia; nie twierdzi, że endpoint, schemat bazy ani testy integracyjne już istnieją.
+
+## Doprecyzowanie przed implementacją (przegląd 2026-10-25)
+
+Po zestawieniu kontraktu z aktualnym szkicem migracji są jeszcze trzy konkretne braki, których nie należy maskować kodem endpointu:
+
+1. **Brak trwałego miejsca na idempotencję.** W bazowej migracji nie ma tabeli/unikalnego ograniczenia dla klucza idempotencji. Sam nagłówek HTTP albo pamięć procesu nie zabezpieczy przed powtórzonym żądaniem po restarcie lub równoległym wywołaniem. Przed implementacją trzeba uzgodnić tabelę kluczy (użytkownik + klucz + hash żądania + order_id), retencję oraz atomową obsługę konfliktu.
+2. **Brak uzgodnionego atomowego tworzenia kampanii i zamówienia.** Obecny szkic zawiera osobne tabele, ale nie definiuje funkcji transakcyjnej do utworzenia obu rekordów. Dwa osobne zapisy z aplikacji mogą zostawić osieroconą kampanię albo zamówienie. Właściwy wzorzec to funkcja SQL o ograniczonych uprawnieniach albo inny zatwierdzony mechanizm transakcyjny, po sprawdzeniu rzeczywistego schematu.
+3. **Treść kampanii nie jest jeszcze częścią minimalnego kontraktu.** Migracja wymaga m.in. tytułu i adresu docelowego, ale ten kontrakt celowo nie określa jeszcze pełnej walidacji URL, zasad dozwolonych protokołów/domen, uploadu obrazu ani reguł dla reklam zewnętrznych. Nie należy tworzyć kampanii z wymyślonymi wartościami zastępczymi.
+
+### Następny bezpieczny krok
+
+Najpierw uzgodnić i przejrzeć rozszerzenie szkicu migracji obejmujące idempotencję oraz atomowe utworzenie kampanii i zamówienia; dopiero potem przygotować endpoint i testy integracyjne. Do czasu potwierdzenia środowiska testowego i zatwierdzenia schematu endpoint tworzący zamówienia nie powinien zapisywać do Supabase. Wycena pozostaje `payable: false`, a Checkout/webhook nie są uruchamiane.
+
