@@ -56,16 +56,16 @@ test('platform admin access uses an explicit allowlist and denies by default', (
 
 
 test('advertising database draft enables RLS and does not grant direct client policies', () => {
-  assert.match(migrationDraft, /alter table public\\.ad_campaigns enable row level security/i);
-  assert.match(migrationDraft, /alter table public\\.ad_orders enable row level security/i);
-  assert.match(migrationDraft, /alter table public\\.ad_stripe_webhook_events enable row level security/i);
-  assert.match(migrationDraft, /Intentionally no anon\\/authenticated policies are added here/i);
+  assert.ok(migrationDraft.includes('alter table public.ad_campaigns enable row level security;'));
+  assert.ok(migrationDraft.includes('alter table public.ad_orders enable row level security;'));
+  assert.ok(migrationDraft.includes('alter table public.ad_stripe_webhook_events enable row level security;'));
+  assert.ok(migrationDraft.includes('Intentionally no anon/authenticated policies are added here'));
 });
 
 test('payment state contract keeps paid campaigns in moderation and rejects browser-only proof', () => {
-  assert.match(orderStateMachine, /payment is confirmed: .pending_review./i);
-  assert.match(orderStateMachine, /Payment alone must never set .active./i);
-  assert.match(orderStateMachine, /browser success URL/i);
-  assert.match(orderStateMachine, /Duplicate event IDs are not processed twice/i);
-  assert.match(orderStateMachine, /mode mismatch/i);
+  assert.ok(orderStateMachine.includes('Once payment is confirmed: `pending_review`.'));
+  assert.ok(orderStateMachine.includes('Payment alone must never set `active`.'));
+  assert.ok(orderStateMachine.includes('browser success URL'));
+  assert.ok(orderStateMachine.includes('Duplicate event IDs are not processed twice.'));
+  assert.ok(orderStateMachine.includes('mode mismatches'));
 });
