@@ -40,3 +40,12 @@ test('function is not executable by public client roles', () => {
   assert.match(migration, /to service_role;/i);
   assert.match(migration, /verify Stripe's signature on the raw request body/i);
 });
+
+test('payment must equal the approved catalog amount and rejects a different stored total', () => {
+  assert.match(
+    migration,
+    /v_order\.amount_total_minor is not null\s+and v_order\.amount_total_minor <> v_order\.amount_net_minor/i,
+  );
+  assert.match(migration, /v_expected_amount := v_order\.amount_net_minor/i);
+  assert.match(migration, /p_amount_total_minor <> v_expected_amount/i);
+});
