@@ -67,14 +67,20 @@ begin
     raise exception 'Invalid order creation arguments' using errcode = '22023';
   end if;
 
-  -- The route performs semantic checks too; DB constraints are the final guardrail.
-  if p_advertiser_type not in ('salon', 'external')
+  -- Explicit NULL checks matter: SQL three-valued logic means "NULL NOT IN (...)"
+  -- evaluates to NULL rather than TRUE. DB constraints remain the final guardrail.
+  if p_advertiser_type is null
+     or p_advertiser_type not in ('salon', 'external')
+     or p_client_type is null
      or p_client_type not in ('salon_w_aplikacji', 'firma_zewnetrzna')
+     or p_package_id is null
      or p_package_id not in ('listing_highlight', 'featured_profile', 'in_app_banner', 'home_screen_banner', 'sponsored_carousel')
+     or p_placement is null
      or p_placement not in ('salon_catalog', 'lumar_pages')
+     or p_placement_slot is null
      or p_placement_slot not in ('salon_listing', 'featured_profile', 'in_app_banner', 'home_screen_banner', 'sponsored_carousel')
      or p_title is null or char_length(p_title) not between 3 and 120
-     or p_destination_url is null or char_length(p_destination_url) > 2048
+     or p_destination_url is null or char_length(p_destination_url) not between 1 and 2048
      or (p_body is not null and char_length(p_body) > 500)
      or (p_image_path is not null and char_length(p_image_path) > 1024) then
     raise exception 'Invalid campaign fields' using errcode = '22023';
