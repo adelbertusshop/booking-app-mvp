@@ -46,3 +46,18 @@ The atomic migration depends on the base advertising migration and both are draf
 ## Release decision
 
 Keep `payable: false`. Do not apply migrations, configure live payment routes, enable real Checkout, or activate campaigns automatically until these blockers are closed and reviewed. A successful Vercel build/status alone does not prove payment correctness.
+
+## Follow-up on 2026-10-25 — draft SQL guard added
+
+The draft atomic function was updated to use `amount_net_minor` as the only expected payment amount and to reject the order if a non-null `amount_total_minor` differs from it. This makes the function fail closed when the stored order snapshot conflicts with the approved catalog amount; it does not add a tax surcharge.
+
+A static regression assertion was added to `tests/advertising-atomic-payment-migration.test.mjs`. This is source-text testing only, not proof from executing PostgreSQL or Stripe integration tests.
+
+Still required before release:
+- ensure the server-side order-creation path copies the exact catalog amount into `amount_net_minor` and never trusts client-submitted prices;
+- reconcile whether legacy tax/total columns should be simplified in a later versioned schema change;
+- run the migration and integration tests against an isolated test database;
+- implement and verify the signed Stripe webhook route and Checkout flow;
+- keep quote response `payable: false` until all gates pass.
+
+This remains a draft-only code change. No database migration was applied and no live payment configuration was changed.
