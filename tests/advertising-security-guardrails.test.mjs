@@ -10,6 +10,14 @@ const authModule = await readFile(
   new URL('../lib/advertising/auth.ts', import.meta.url),
   'utf8',
 );
+const migrationDraft = await readFile(
+  new URL('../supabase/migrations/20261022160000_lumar_advertising.sql', import.meta.url),
+  'utf8',
+);
+const orderStateMachine = await readFile(
+  new URL('../docs/advertising-order-state-machine.md', import.meta.url),
+  'utf8',
+);
 
 test('advertising quote stays non-payable until Checkout and database gates are cleared', () => {
   assert.match(quoteRoute, /payable:\s*false/);
@@ -44,4 +52,20 @@ test('platform admin access uses an explicit allowlist and denies by default', (
   assert.match(authModule, /LUMAR_PLATFORM_ADMIN_USER_IDS/);
   assert.match(authModule, /return configuredIds\.includes\(userId\.toLowerCase\(\)\)/);
   assert.match(authModule, /status:\s*403/);
+});
+
+
+test('advertising database draft enables RLS and does not grant direct client policies', () => {
+  assert.match(migrationDraft, /alter table public\\.ad_campaigns enable row level security/i);
+  assert.match(migrationDraft, /alter table public\\.ad_orders enable row level security/i);
+  assert.match(migrationDraft, /alter table public\\.ad_stripe_webhook_events enable row level security/i);
+  assert.match(migrationDraft, /Intentionally no anon\\/authenticated policies are added here/i);
+});
+
+test('payment state contract keeps paid campaigns in moderation and rejects browser-only proof', () => {
+  assert.match(orderStateMachine, /payment is confirmed: .pending_review./i);
+  assert.match(orderStateMachine, /Payment alone must never set .active./i);
+  assert.match(orderStateMachine, /browser success URL/i);
+  assert.match(orderStateMachine, /Duplicate event IDs are not processed twice/i);
+  assert.match(orderStateMachine, /mode mismatch/i);
 });
