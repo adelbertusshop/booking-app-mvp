@@ -75,9 +75,16 @@ begin
     raise exception 'Checkout session or currency mismatch' using errcode = '22023';
   end if;
 
-  v_expected_amount := coalesce(v_order.amount_total_minor, v_order.amount_net_minor);
+  -- The catalog amount is the sole approved customer-facing payable amount.
+  -- Legacy net/total columns remain for compatibility, but any differing total fails closed.
+  if v_order.amount_total_minor is not null
+     and v_order.amount_total_minor <> v_order.amount_net_minor then
+    raise exception 'Order total must equal the approved catalog amount; tax surcharge is not permitted' using errcode = '22023';
+  end if;
+
+  v_expected_amount := v_order.amount_net_minor;
   if p_amount_total_minor <> v_expected_amount then
-    raise exception 'Verified Stripe amount does not match order snapshot' using errcode = '22023';
+    raise exception 'Verified Stripe amount does not match approved catalog amount' using errcode = '22023';
   end if;
 
   -- Lock and cross-check the campaign snapshot before changing payment state.
