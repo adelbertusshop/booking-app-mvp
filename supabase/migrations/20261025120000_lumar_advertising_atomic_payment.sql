@@ -24,6 +24,7 @@ as $function$
 declare
   v_event public.ad_stripe_webhook_events%rowtype;
   v_order public.ad_orders%rowtype;
+  v_campaign public.ad_campaigns%rowtype;
   v_expected_amount bigint;
   v_rows integer;
 begin
@@ -77,6 +78,20 @@ begin
   v_expected_amount := coalesce(v_order.amount_total_minor, v_order.amount_net_minor);
   if p_amount_total_minor <> v_expected_amount then
     raise exception 'Verified Stripe amount does not match order snapshot' using errcode = '22023';
+  end if;
+
+  -- Lock and cross-check the campaign snapshot before changing payment state.
+  select * into v_campaign
+  from public.ad_campaigns
+  where id = v_order.campaign_id
+  for update;
+
+  if not found
+     or v_campaign.advertiser_user_id <> v_order.advertiser_user_id
+     or v_campaign.package_id <> v_order.package_id
+     or v_campaign.client_type <> v_order.client_type
+     or v_campaign.duration_days <> v_order.duration_days then
+    raise exception 'Advertising order and campaign snapshot mismatch' using errcode = '22023';
   end if;
 
   if v_order.status = 'paid' then
