@@ -41,3 +41,9 @@ test('draft explicitly requires review and does not claim to be applied', () => 
   assert.match(migration, /NOT APPLIED/i);
   assert.match(migration, /Keep quote payable=false and Checkout\/webhook disabled/i);
 });
+
+test('RPC privilege signature matches all 16 function arguments', () => {
+  const expectedSignature = /revoke all on function public\.lumar_create_advertising_order\(\s*uuid, text, text, text, uuid, text, text, text, text, text, text, text,\s*integer, bigint, text, text\s*\) from public, anon, authenticated;/i;
+  assert.match(migration, expectedSignature);
+  assert.match(migration, /grant execute on function public\.lumar_create_advertising_order\(\s*uuid, text, text, text, uuid, text, text, text, text, text, text, text,\s*integer, bigint, text, text\s*\) to service_role;/i);
+});
