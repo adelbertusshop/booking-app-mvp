@@ -141,12 +141,12 @@ end;
 $function$;
 
 revoke all on function public.lumar_create_advertising_order(
-  uuid, text, text, text, uuid, text, text, text, text, text, text, integer,
-  bigint, text, text
+  uuid, text, text, text, uuid, text, text, text, text, text, text, text,
+  integer, bigint, text, text
 ) from public, anon, authenticated;
 grant execute on function public.lumar_create_advertising_order(
-  uuid, text, text, text, uuid, text, text, text, text, text, text, integer,
-  bigint, text, text
+  uuid, text, text, text, uuid, text, text, text, text, text, text, text,
+  integer, bigint, text, text
 ) to service_role;
 
 commit;
