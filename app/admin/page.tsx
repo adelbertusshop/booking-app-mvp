@@ -200,6 +200,7 @@ export default function AdminPage() {
           salon_name: requestedName,
           slug: baseSlug || null,
           whatsapp_template: 'Cześć {NAME}! Przypominamy o wizycie: {SERVICE} w dniu {DATE} o godz. {TIME}. Do zobaczenia!',
+          is_public: true,
         };
 
         let { data: newSalon, error: createSalonError } = await supabase
