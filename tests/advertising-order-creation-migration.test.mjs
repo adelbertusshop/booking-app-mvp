@@ -13,6 +13,10 @@ test('order creation draft uses a durable per-user idempotency key and request h
   assert.match(migration, /v_existing_hash is distinct from p_request_hash/i);
 });
 
+test('order creation RPC explicitly rejects a NULL duration', () => {
+  assert.match(migration, /p_duration_days is null or p_duration_days not in \\(7, 30, 90\\)/i);
+});
+
 test('campaign and order are created by one database function and transaction', () => {
   assert.match(migration, /create or replace function public\.lumar_create_advertising_order/i);
   assert.match(migration, /insert into public\.ad_campaigns/i);
