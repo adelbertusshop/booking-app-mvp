@@ -14,7 +14,7 @@ test('order creation draft uses a durable per-user idempotency key and request h
 });
 
 test('order creation RPC explicitly rejects a NULL duration', () => {
-  assert.match(migration, /p_duration_days is null or p_duration_days not in \\(7, 30, 90\\)/i);
+  assert.ok(migration.includes('or p_duration_days is null or p_duration_days not in (7, 30, 90)'));
 });
 
 test('campaign and order are created by one database function and transaction', () => {
