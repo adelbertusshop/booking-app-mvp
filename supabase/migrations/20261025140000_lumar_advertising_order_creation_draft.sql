@@ -61,7 +61,7 @@ declare
 begin
   if p_advertiser_user_id is null
      or p_amount_minor is null or p_amount_minor <= 0
-     or p_duration_days not in (7, 30, 90)
+     or p_duration_days is null or p_duration_days not in (7, 30, 90)
      or p_idempotency_key is null or length(p_idempotency_key) not between 8 and 200
      or p_request_hash is null or p_request_hash !~ '^[a-f0-9]{64}$' then
     raise exception 'Invalid order creation arguments' using errcode = '22023';
