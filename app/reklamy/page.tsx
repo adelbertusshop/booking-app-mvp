@@ -106,7 +106,10 @@ export default function ReklamyPage() {
       <header className="border-b border-zinc-800 px-4 py-5">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <Link href="/" className="text-xl font-black tracking-widest text-amber-400">LUMAR</Link>
-          <Link href="/salony" className="text-sm text-zinc-300 transition hover:text-amber-300">Lista salonów</Link>
+          <nav className="flex items-center gap-4">
+            <Link href="/reklamy/zamowienia" className="text-sm text-zinc-300 transition hover:text-amber-300">Moje zamówienia</Link>
+            <Link href="/salony" className="text-sm text-zinc-300 transition hover:text-amber-300">Lista salonów</Link>
+          </nav>
         </div>
       </header>
 
