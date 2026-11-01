@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   if (description.length > 500) return fail('Opis reklamy może mieć maksymalnie 500 znaków.', 400);
   if (!destinationUrl) return fail('Adres docelowy musi być prawidłowym adresem HTTPS.', 400);
   if (imagePath !== undefined && imagePath !== null &&
-      (typeof imagePath !== 'string' || imagePath.length > 1024 || imagePath.startsWith('/') || imagePath.includes('..'))) {
+      (typeof imagePath !== 'string' || imagePath.length > 1024 || !/^[A-Za-z0-9][A-Za-z0-9/_-]*$/.test(imagePath) || imagePath.includes('..'))) {
     return fail('Nieprawidłowa ścieżka grafiki reklamowej.', 400);
   }
 
@@ -203,8 +203,8 @@ export async function POST(request: Request) {
       description: 'Reklama LUMAR — ' + durationDays + ' dni',
       amountMinor,
       customerEmail: auth.context.user.email ?? undefined,
-      successUrl: origin + '/reklamy/wynik?session_id={CHECKOUT_SESSION_ID}',
-      cancelUrl: origin + '/reklamy?status=cancelled',
+      successUrl: origin + '/reklamy?payment_return=1&session_id={CHECKOUT_SESSION_ID}',
+      cancelUrl: origin + '/reklamy?payment_cancelled=1',
     });
 
     if (session.livemode || !session.url || session.status !== 'open') {
