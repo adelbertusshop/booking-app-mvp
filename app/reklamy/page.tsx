@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
@@ -25,6 +25,7 @@ export default function ReklamyPage() {
   const [destinationUrl, setDestinationUrl] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState('');
   const checkoutIdempotencyKey = useRef<string | null>(null);
   const testCheckoutEnabled = process.env.NEXT_PUBLIC_ADVERTISING_TEST_CHECKOUT === 'true';
 
@@ -34,6 +35,15 @@ export default function ReklamyPage() {
   );
   const selected = ADVERTISING_PACKAGES.find((item) => item.id === selectedPackage);
   const selectedPrice = selected?.pricesNetPln[clientType][duration];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_return') === '1') {
+      setPaymentNotice('Wróciłeś z testowej sesji Stripe. Płatność potwierdza wyłącznie webhook — odświeżenie tej strony nie oznacza, że zamówienie zostało opłacone.');
+    } else if (params.get('payment_cancelled') === '1') {
+      setPaymentNotice('Płatność została anulowana. Zamówienie nie uruchamia emisji reklamy.');
+    }
+  }, []);
 
   async function startTestCheckout() {
     setCheckoutMessage('');
@@ -105,6 +115,7 @@ export default function ReklamyPage() {
         <h1 className="mt-3 max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
           Wybierz sposób, w jaki klienci zobaczą Twoją firmę.
         </h1>
+        {paymentNotice && <p role="status" className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">{paymentNotice}</p>}
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
           Wybierz pakiet, typ klienta i czas emisji. Ceny katalogowe są podane netto w PLN. Dostępna będzie wyłącznie płatność testowa Stripe w środowisku Preview; płatności produkcyjne pozostają wyłączone.
         </p>
