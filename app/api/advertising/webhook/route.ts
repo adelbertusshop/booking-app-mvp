@@ -109,6 +109,8 @@ export async function POST(request: Request) {
     {
       p_event_id: event.id,
       p_order_id: metadata.order_id,
+      p_campaign_id: metadata.campaign_id,
+      p_advertiser_user_id: metadata.advertiser_user_id,
       p_checkout_session_id: session.id,
       p_payment_intent_id: paymentIntent,
       p_amount_total_minor: session.amount_total,
