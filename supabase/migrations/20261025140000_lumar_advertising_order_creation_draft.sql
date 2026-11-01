@@ -28,6 +28,9 @@ create table if not exists public.ad_order_idempotency (
 
 alter table public.ad_order_idempotency enable row level security;
 
+-- Only the trusted server service role may use the idempotency table.
+grant all on table public.ad_order_idempotency to service_role;
+
 -- Create both records in one database transaction. All passed fields must already
 -- be validated/derived by the trusted server route. A mismatch on a reused key fails.
 create or replace function public.lumar_create_advertising_order(
