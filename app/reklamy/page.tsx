@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
@@ -25,6 +25,7 @@ export default function ReklamyPage() {
   const [destinationUrl, setDestinationUrl] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
+  const checkoutIdempotencyKey = useRef<string | null>(null);
   const testCheckoutEnabled = process.env.NEXT_PUBLIC_ADVERTISING_TEST_CHECKOUT === 'true';
 
   const packages = useMemo(
@@ -60,7 +61,7 @@ export default function ReklamyPage() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + session.access_token,
-          'Idempotency-Key': crypto.randomUUID(),
+          'Idempotency-Key': checkoutIdempotencyKey.current ?? (checkoutIdempotencyKey.current = crypto.randomUUID()),
         },
         body: JSON.stringify({
           packageId: selected.id,
@@ -209,15 +210,15 @@ export default function ReklamyPage() {
           <div className="mt-5 grid gap-4 border-t border-zinc-800 pt-5">
             <label className="grid gap-2 text-sm font-semibold text-zinc-200">
               Tytuł reklamy
-              <input value={adTitle} onChange={(event) => setAdTitle(event.target.value)} maxLength={120} required placeholder="Np. Nowa kolekcja zabiegów" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+              <input value={adTitle} onChange={(event) => { checkoutIdempotencyKey.current = null; setAdTitle(event.target.value); }} maxLength={120} required placeholder="Np. Nowa kolekcja zabiegów" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
             </label>
             <label className="grid gap-2 text-sm font-semibold text-zinc-200">
               Krótki opis (opcjonalnie)
-              <textarea value={adDescription} onChange={(event) => setAdDescription(event.target.value)} maxLength={500} rows={3} placeholder="Napisz krótko, co chcesz promować." className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+              <textarea value={adDescription} onChange={(event) => { checkoutIdempotencyKey.current = null; setAdDescription(event.target.value); }} maxLength={500} rows={3} placeholder="Napisz krótko, co chcesz promować." className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
             </label>
             <label className="grid gap-2 text-sm font-semibold text-zinc-200">
               Adres strony, do której prowadzi reklama (HTTPS)
-              <input value={destinationUrl} onChange={(event) => setDestinationUrl(event.target.value)} type="url" maxLength={2048} required placeholder="https://twoja-strona.pl" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+              <input value={destinationUrl} onChange={(event) => { checkoutIdempotencyKey.current = null; setDestinationUrl(event.target.value); }} type="url" maxLength={2048} required placeholder="https://twoja-strona.pl" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
             </label>
             {checkoutMessage && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{checkoutMessage}</p>}
             <button
