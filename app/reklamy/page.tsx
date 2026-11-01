@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
   ADVERTISING_CLIENT_TYPES,
@@ -19,6 +20,12 @@ export default function ReklamyPage() {
   const [duration, setDuration] = useState<AdvertisingDurationDays>(30);
   const [placement, setPlacement] = useState<PlacementFilter>('all');
   const [selectedPackage, setSelectedPackage] = useState<string>('listing_highlight');
+  const [adTitle, setAdTitle] = useState('');
+  const [adDescription, setAdDescription] = useState('');
+  const [destinationUrl, setDestinationUrl] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutMessage, setCheckoutMessage] = useState('');
+  const testCheckoutEnabled = process.env.NEXT_PUBLIC_ADVERTISING_TEST_CHECKOUT === 'true';
 
   const packages = useMemo(
     () => ADVERTISING_PACKAGES.filter((item) => placement === 'all' || item.placement === placement),
@@ -26,6 +33,54 @@ export default function ReklamyPage() {
   );
   const selected = ADVERTISING_PACKAGES.find((item) => item.id === selectedPackage);
   const selectedPrice = selected?.pricesNetPln[clientType][duration];
+
+  async function startTestCheckout() {
+    setCheckoutMessage('');
+    if (!testCheckoutEnabled) return;
+    if (!selected) return;
+    setCheckoutLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Zaloguj się do LUMAR, aby zamówić reklamę.');
+
+      let salonId: string | null = null;
+      if (clientType === 'salon_w_aplikacji') {
+        const { data: salon, error: salonError } = await supabase
+          .from('salons')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (salonError) throw new Error('Nie udało się pobrać salonu przypisanego do konta.');
+        if (!salon?.id) throw new Error('Na tym koncie nie znaleziono salonu.');
+        salonId = salon.id;
+      }
+
+      const response = await fetch('/api/advertising/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token,
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          packageId: selected.id,
+          clientType,
+          durationDays: duration,
+          salonId,
+          title: adTitle,
+          description: adDescription,
+          destinationUrl,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Nie udało się rozpocząć płatności testowej.');
+      if (typeof result.checkoutUrl !== 'string') throw new Error('Stripe nie zwrócił adresu płatności.');
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      setCheckoutMessage(error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd.');
+      setCheckoutLoading(false);
+    }
+  }
 
   function choosePlacement(next: PlacementFilter) {
     setPlacement(next);
@@ -50,7 +105,7 @@ export default function ReklamyPage() {
           Wybierz sposób, w jaki klienci zobaczą Twoją firmę.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-          Wybierz pakiet, typ klienta i czas emisji. Ceny są podane netto w PLN. Płatności są jeszcze wyłączone — przed ich uruchomieniem LUMAR musi mieć potwierdzone zasady podatkowe i rozliczeniowe.
+          Wybierz pakiet, typ klienta i czas emisji. Ceny katalogowe są podane netto w PLN. Dostępna będzie wyłącznie płatność testowa Stripe w środowisku Preview; płatności produkcyjne pozostają wyłączone.
         </p>
 
         <div className="mt-8 grid gap-5 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:grid-cols-2">
@@ -144,22 +199,43 @@ export default function ReklamyPage() {
               <p className="mt-1 text-sm text-zinc-400">
                 {clientType === 'salon_w_aplikacji' ? 'Salon w LUMAR' : 'Firma zewnętrzna'} · {duration} dni
               </p>
-              <p className="mt-2 text-sm text-zinc-400">Cena netto. Kwota brutto i zasady podatkowe zostaną określone przed uruchomieniem płatności.</p>
+              <p className="mt-2 text-sm text-zinc-400">Kwota katalogowa. Test nie uruchamia emisji reklamy — po opłaceniu kampania trafia do moderacji.</p>
             </div>
             <div className="sm:text-right">
               <p className="text-3xl font-black text-amber-300">{selectedPrice === undefined ? '—' : formatNetPrice(selectedPrice)}</p>
-              <button
-                type="button"
-                disabled
-                title="Zakup zostanie włączony po wdrożeniu i przetestowaniu płatności Stripe."
-                className="mt-3 cursor-not-allowed rounded-xl bg-zinc-700 px-5 py-3 text-sm font-bold text-zinc-300"
-              >
-                Zakup — płatności w przygotowaniu
-              </button>
+              <span className="mt-2 inline-flex rounded-full border border-amber-400/40 px-3 py-1 text-xs font-semibold text-amber-200">TRYB TESTOWY</span>
             </div>
           </div>
+          <div className="mt-5 grid gap-4 border-t border-zinc-800 pt-5">
+            <label className="grid gap-2 text-sm font-semibold text-zinc-200">
+              Tytuł reklamy
+              <input value={adTitle} onChange={(event) => setAdTitle(event.target.value)} maxLength={120} required placeholder="Np. Nowa kolekcja zabiegów" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-zinc-200">
+              Krótki opis (opcjonalnie)
+              <textarea value={adDescription} onChange={(event) => setAdDescription(event.target.value)} maxLength={500} rows={3} placeholder="Napisz krótko, co chcesz promować." className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-zinc-200">
+              Adres strony, do której prowadzi reklama (HTTPS)
+              <input value={destinationUrl} onChange={(event) => setDestinationUrl(event.target.value)} type="url" maxLength={2048} required placeholder="https://twoja-strona.pl" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
+            </label>
+            {checkoutMessage && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{checkoutMessage}</p>}
+            <button
+              type="button"
+              onClick={startTestCheckout}
+              disabled={!testCheckoutEnabled || checkoutLoading || !selected || adTitle.trim().length < 3 || !destinationUrl.trim()}
+              className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
+            >
+              {checkoutLoading ? 'Przygotowuję płatność…' : testCheckoutEnabled ? 'Przejdź do testowej płatności Stripe' : 'Testowa płatność — jeszcze nieaktywna'}
+            </button>
+            <p className="text-xs leading-5 text-zinc-400">
+              {testCheckoutEnabled
+                ? 'Piaskownica Stripe. Używane są wyłącznie testowe klucze. Płatność nie uruchamia reklamy automatycznie.'
+                : 'Przycisk pozostaje zablokowany, dopóki administrator nie włączy flagi testowej w środowisku Preview i nie przygotuje bazy oraz webhooka.'}
+            </p>
+          </div>
           <p className="mt-4 border-t border-zinc-800 pt-4 text-sm leading-6 text-zinc-400">
-            Wybranie pakietu nie pobiera opłaty i nie uruchamia emisji. Zakup pozostaje wyłączony do czasu skonfigurowania i przetestowania rozliczeń. Reklama będzie mogła wystartować dopiero po potwierdzeniu płatności przez serwer, akceptacji materiału reklamowego i ustaleniu daty startu.
+            Po potwierdzeniu płatności przez podpisany webhook kampania trafia do moderacji. Nie jest publikowana automatycznie. Produkcyjne płatności pozostają wyłączone do osobnej decyzji po weryfikacji zasad podatkowych i rozliczeniowych.
           </p>
         </aside>
       </section>
