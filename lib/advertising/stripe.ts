@@ -38,6 +38,7 @@ export async function createAdvertisingCheckoutSession(
   const form = new URLSearchParams();
 
   form.set('mode', 'payment');
+  form.set('payment_method_types[0]', 'card');
   form.set('client_reference_id', input.orderId);
   form.set('success_url', input.successUrl);
   form.set('cancel_url', input.cancelUrl);
