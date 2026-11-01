@@ -135,6 +135,14 @@ alter table public.ad_orders enable row level security;
 alter table public.ad_events enable row level security;
 alter table public.ad_stripe_webhook_events enable row level security;
 
+-- The service role is the only server-side role used by advertising API routes.
+-- RLS remains enabled; no anon/authenticated policies or grants are introduced.
+grant all on table public.ad_campaigns to service_role;
+grant all on table public.ad_orders to service_role;
+grant all on table public.ad_events to service_role;
+grant all on table public.ad_stripe_webhook_events to service_role;
+grant usage, select on sequence public.ad_events_id_seq to service_role;
+
 -- Intentionally no anon/authenticated policies are added here.
 -- New client roles therefore receive no direct table access until a separately reviewed
 -- policy/API design is approved. Server-side routes must verify the session, salon ownership,
