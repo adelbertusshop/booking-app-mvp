@@ -181,10 +181,12 @@ export async function POST(request: Request) {
     return fail('Baza nie zwróciła prawidłowego zamówienia.', 503);
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!siteUrl) return fail('Brak konfiguracji adresu aplikacji.', 503);
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const vercelHost = process.env.VERCEL_URL;
   let origin: string;
   try {
+    const siteUrl = configuredSiteUrl || (vercelHost ? 'https://' + vercelHost : null);
+    if (!siteUrl) throw new Error('missing site url');
     const parsed = new URL(siteUrl);
     if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') throw new Error('invalid origin');
     origin = parsed.origin;
