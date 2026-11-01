@@ -9,6 +9,8 @@ begin;
 create or replace function public.lumar_apply_advertising_payment_success(
   p_event_id text,
   p_order_id uuid,
+  p_campaign_id uuid,
+  p_advertiser_user_id uuid,
   p_checkout_session_id text,
   p_payment_intent_id text,
   p_amount_total_minor bigint,
@@ -70,7 +72,9 @@ begin
   end if;
 
   -- The checkout session must have been persisted server-side before payment.
-  if v_order.stripe_checkout_session_id is distinct from p_checkout_session_id
+  if v_order.campaign_id is distinct from p_campaign_id
+     or v_order.advertiser_user_id is distinct from p_advertiser_user_id
+     or v_order.stripe_checkout_session_id is distinct from p_checkout_session_id
      or v_order.currency <> 'PLN' then
     raise exception 'Checkout session or currency mismatch' using errcode = '22023';
   end if;
@@ -160,10 +164,10 @@ $function$;
 
 -- The function is a privileged server-side boundary, never a client RPC.
 revoke all on function public.lumar_apply_advertising_payment_success(
-  text, uuid, text, text, bigint, text, boolean, boolean
+  text, uuid, uuid, uuid, text, text, bigint, text, boolean, boolean
 ) from public, anon, authenticated;
 grant execute on function public.lumar_apply_advertising_payment_success(
-  text, uuid, text, text, bigint, text, boolean, boolean
+  text, uuid, uuid, uuid, text, text, bigint, text, boolean, boolean
 ) to service_role;
 
 commit;
