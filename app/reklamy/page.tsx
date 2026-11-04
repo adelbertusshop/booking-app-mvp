@@ -14,6 +14,7 @@ import {
 } from '@/lib/advertising/catalog';
 
 type PlacementFilter = 'all' | AdvertisingPlacement;
+type SalonLookupStatus = 'loading' | 'found' | 'missing' | 'signed_out' | 'error' | 'not_applicable';
 
 export default function ReklamyPage() {
   const [clientType, setClientType] = useState<AdvertisingClientType>('salon_w_aplikacji');
@@ -26,6 +27,8 @@ export default function ReklamyPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [paymentNotice, setPaymentNotice] = useState('');
+  const [salonLookupStatus, setSalonLookupStatus] = useState<SalonLookupStatus>('loading');
+  const [linkedSalonName, setLinkedSalonName] = useState('');
   const checkoutIdempotencyKey = useRef<string | null>(null);
   const testCheckoutEnabled = process.env.NEXT_PUBLIC_ADVERTISING_TEST_CHECKOUT === 'true';
 
@@ -44,6 +47,66 @@ export default function ReklamyPage() {
       setPaymentNotice('Płatność została anulowana. Zamówienie nie uruchamia emisji reklamy.');
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadLinkedSalon() {
+      if (clientType !== 'salon_w_aplikacji') {
+        setSalonLookupStatus('not_applicable');
+        setLinkedSalonName('');
+        return;
+      }
+
+      setSalonLookupStatus('loading');
+      setLinkedSalonName('');
+
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (!active) return;
+
+        if (sessionError) {
+          setSalonLookupStatus('error');
+          return;
+        }
+
+        if (!session?.user) {
+          setSalonLookupStatus('signed_out');
+          return;
+        }
+
+        const { data: salon, error: salonError } = await supabase
+          .from('salons')
+          .select('salon_name')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (salonError) {
+          console.error('LUMAR advertising salon lookup failed:', salonError);
+          setSalonLookupStatus('error');
+          return;
+        }
+
+        if (!salon?.salon_name) {
+          setSalonLookupStatus('missing');
+          return;
+        }
+
+        setLinkedSalonName(salon.salon_name);
+        setSalonLookupStatus('found');
+      } catch (error) {
+        console.error('LUMAR advertising salon lookup failed:', error);
+        if (active) setSalonLookupStatus('error');
+      }
+    }
+
+    void loadLinkedSalon();
+    return () => {
+      active = false;
+    };
+  }, [clientType]);
 
   async function startTestCheckout() {
     setCheckoutMessage('');
@@ -214,6 +277,15 @@ export default function ReklamyPage() {
               <p className="mt-1 text-sm text-zinc-400">
                 {clientType === 'salon_w_aplikacji' ? 'Salon w LUMAR' : 'Firma zewnętrzna'} · {duration} dni
               </p>
+              {clientType === 'salon_w_aplikacji' && (
+                <div role="status" className="mt-3 rounded-lg border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm">
+                  {salonLookupStatus === 'loading' && <span className="text-zinc-400">Sprawdzam salon przypisany do zalogowanego konta…</span>}
+                  {salonLookupStatus === 'found' && <span className="text-emerald-300">Salon przypisany do konta: <strong>{linkedSalonName}</strong></span>}
+                  {salonLookupStatus === 'missing' && <span className="text-amber-200">Na tym koncie nie znaleziono salonu. Sprawdź, czy logujesz się na właściwe konto.</span>}
+                  {salonLookupStatus === 'signed_out' && <span className="text-amber-200">Nie jesteś zalogowany w tej wersji Preview. Zaloguj się najpierw w panelu salonu, używając tego samego adresu strony.</span>}
+                  {salonLookupStatus === 'error' && <span className="text-red-300">Nie udało się sprawdzić przypisanego salonu. Odśwież stronę i spróbuj ponownie.</span>}
+                </div>
+              )}
               <p className="mt-2 text-sm text-zinc-400">Kwota katalogowa. Test nie uruchamia emisji reklamy — po opłaceniu kampania trafia do moderacji.</p>
             </div>
             <div className="sm:text-right">
