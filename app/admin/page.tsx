@@ -170,11 +170,12 @@ export default function AdminPage() {
 
   const loadSalonData = async (currentUser: AuthUser) => {
     setLoadingData(true);
-    let { data: salon, error: salonLookupError } = await supabase
+    const { data: initialSalon, error: salonLookupError } = await supabase
       .from('salons')
       .select('*')
       .eq('user_id', currentUser.id)
       .maybeSingle();
+    let salon = initialSalon;
 
     if (salonLookupError) {
       console.error('LUMAR salon lookup failed:', salonLookupError);
