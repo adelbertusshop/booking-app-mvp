@@ -170,12 +170,38 @@ export default function AdminPage() {
 
   const loadSalonData = async (currentUser: AuthUser) => {
     setLoadingData(true);
-    let { data: salon } = await supabase.from('salons').select('*').eq('user_id', currentUser.id).single();
+    let { data: salon, error: salonLookupError } = await supabase
+      .from('salons')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+
+    if (salonLookupError) {
+      console.error('LUMAR salon lookup failed:', salonLookupError);
+      alert('Nie udało się pobrać danych salonu. Odśwież stronę. Szczegóły: ' + salonLookupError.message);
+      setLoadingData(false);
+      return;
+    }
+
     if (!salon) {
-      const { data: newSalon } = await supabase.from('salons')
-        .insert([{ user_id: currentUser.id, admin_email: currentUser.email || '', salon_name: 'Mój Salon' }])
-        .select().single();
-      if (newSalon) salon = newSalon;
+      const { data: newSalon, error: createSalonError } = await supabase
+        .from('salons')
+        .insert([{
+          user_id: currentUser.id,
+          admin_email: currentUser.email || '',
+          salon_name: 'Mój Salon',
+        }])
+        .select()
+        .single();
+
+      if (createSalonError) {
+        console.error('LUMAR salon creation failed:', createSalonError);
+        alert('Nie udało się utworzyć salonu. Sprawdź połączenie i spróbuj ponownie. Szczegóły: ' + createSalonError.message);
+        setLoadingData(false);
+        return;
+      }
+
+      salon = newSalon;
     }
     if (salon) {
       setSalonId(salon.id);
