@@ -42,6 +42,12 @@ export default function Home() {
             >
               🔍 Znajdź salon
             </Link>
+            <Link
+              href="/reklamy"
+              className="bg-zinc-900 hover:bg-zinc-800 border border-amber-500/40 text-amber-300 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-200"
+            >
+              📣 Promuj firmę w LUMAR
+            </Link>
           </div>
         </div>
       </main>
@@ -60,6 +66,18 @@ export default function Home() {
               <p className="text-zinc-400 text-sm leading-relaxed">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ADVERTISING CTA */}
+      <section className="border-y border-zinc-900 bg-zinc-950 py-12 px-4 text-center">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <p className="text-sm font-bold uppercase tracking-widest text-amber-400">Reklama w LUMAR</p>
+          <h2 className="text-2xl font-black sm:text-3xl">Pokaż swoją firmę większej liczbie klientów.</h2>
+          <p className="text-sm leading-6 text-zinc-400">Wybierz wyróżnienie profilu, baner lub treść sponsorowaną i dopasuj czas emisji do swoich potrzeb.</p>
+          <Link href="/reklamy" className="inline-block rounded-xl bg-amber-400 px-7 py-3 font-black text-black transition hover:bg-amber-300">
+            Zobacz pakiety reklamowe →
+          </Link>
         </div>
       </section>
 
@@ -85,6 +103,7 @@ export default function Home() {
             <a href="/polityka-prywatnosci" className="hover:text-amber-400 transition-colors">Polityka prywatności</a>
             <a href="/kontakt" className="hover:text-amber-400 transition-colors">Kontakt</a>
             <a href="/salony" className="hover:text-amber-400 transition-colors">Katalog salonów</a>
+            <a href="/reklamy" className="hover:text-amber-400 transition-colors">Reklama w LUMAR</a>
           </div>
           <p className="text-xs text-zinc-700">© 2026 LUMAR · Wojciech Jarosz · wojciechjarosz41@gmail.com</p>
         </div>
