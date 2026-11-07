@@ -9,8 +9,16 @@ interface Salon {
   slug: string;
 }
 
+interface PublicAd {
+  id: string;
+  title: string;
+  body: string | null;
+  destinationUrl: string;
+}
+
 export default function SalonyPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
+  const [ads, setAds] = useState<PublicAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -22,6 +30,16 @@ export default function SalonyPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    fetch('/api/advertising/public', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data: unknown = await res.json();
+        if (data && typeof data === 'object' && 'ads' in data && Array.isArray(data.ads)) {
+          setAds(data.ads as PublicAd[]);
+        }
+      })
+      .catch(() => setAds([]));
   }, []);
 
   const filtered = salons.filter(s =>
@@ -56,6 +74,40 @@ export default function SalonyPage() {
             className="w-full bg-zinc-950 border border-amber-500/30 focus:border-amber-400 text-white placeholder-zinc-500 rounded-xl px-5 py-3 text-sm outline-none transition-all"
           />
         </div>
+
+        {/* Reklamy zatwierdzone do emisji */}
+        {ads.length > 0 && (
+          <section aria-labelledby="sponsored-listing-heading" className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="sponsored-listing-heading" className="text-lg font-bold text-amber-300">
+                Wyróżnione firmy
+              </h2>
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Materiały sponsorowane</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ads.map((ad) => (
+                <article key={ad.id} className="rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="rounded-full border border-amber-400/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                      Reklama
+                    </span>
+                    <span className="text-xs text-zinc-500">Wyróżniona oferta</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white">{ad.title}</h3>
+                  {ad.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">{ad.body}</p>}
+                  <a
+                    href={ad.destinationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="mt-4 inline-flex rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black transition hover:bg-amber-300"
+                  >
+                    Zobacz ofertę →
+                  </a>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Lista salonów */}
         {loading ? (
