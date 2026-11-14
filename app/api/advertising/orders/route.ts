@@ -46,6 +46,29 @@ export async function GET(request: Request) {
     });
   }
 
+  const { count: exactOrderCount, error: countError } = await auth.context.supabase
+    .from('ad_orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('advertiser_user_id', auth.context.user.id);
+
+  // Temporary Preview-only diagnostics. Never log tokens, keys, or customer data.
+  const supabaseHost = (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').host;
+    } catch {
+      return 'invalid-supabase-url';
+    }
+  })();
+
+  console.info('[LUMAR_AD_ORDERS_DIAGNOSTIC]', JSON.stringify({
+    supabaseHost,
+    authenticated: true,
+    returnedRows: data?.length ?? 0,
+    exactOrderCount,
+    countQueryError: countError?.code ?? null,
+    listQueryError: error?.code ?? null,
+  }));
+
   const orders = (data ?? []).map((order) => ({
     id: order.id,
     campaignId: order.campaign_id,
