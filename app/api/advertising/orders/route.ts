@@ -66,7 +66,6 @@ export async function GET(request: Request) {
     returnedRows: data?.length ?? 0,
     exactOrderCount,
     countQueryError: countError?.code ?? null,
-    listQueryError: error?.code ?? null,
   }));
 
   const orders = (data ?? []).map((order) => ({
