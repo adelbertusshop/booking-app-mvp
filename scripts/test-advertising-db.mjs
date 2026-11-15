@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixture = path.join(root, 'supabase/tests/fixtures/salon_prerequisite.sql.fixture');
 const temporaryMigration = path.join(
   root,
-  'supabase/migrations/20261005080000_test_only_salon_prerequisite.sql'
+  'supabase/migrations/202610050800_test_only_salon_prerequisite.sql'
 );
 const config = path.join(root, 'supabase/config.toml');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
