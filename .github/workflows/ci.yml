@@ -20,6 +20,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Advertising and repository tests
+        run: npm test
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
