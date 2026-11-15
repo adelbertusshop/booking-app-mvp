@@ -11,6 +11,8 @@ const temporaryMigration = path.join(
 );
 const config = path.join(root, 'supabase/config.toml');
 const pgTapSetup = path.join(root, 'supabase/tests/fixtures/enable_pgtap.sql.fixture');
+const concurrencySeed = path.join(root, 'supabase/tests/fixtures/concurrency_seed.sql.fixture');
+const concurrencyTest = path.join(root, 'scripts/test-advertising-concurrency.mjs');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 function run(args) {
@@ -22,7 +24,34 @@ function run(args) {
 
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`Supabase CLI failed: npx supabase ${args.join(' ')}`);
+    throw new Error('Supabase CLI failed: npx supabase ' + args.join(' '));
+  }
+}
+
+function capture(args) {
+  const result = spawnSync(npx, ['--yes', 'supabase', ...args], {
+    cwd: root,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error('Supabase CLI failed: npx supabase ' + args.join(' '));
+  }
+  return result.stdout;
+}
+
+function runNode(scriptPath, env) {
+  const result = spawnSync(process.execPath, [scriptPath], {
+    cwd: root,
+    stdio: 'inherit',
+    env,
+  });
+
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error('Node integration test failed: ' + scriptPath);
   }
 }
 
@@ -39,6 +68,20 @@ try {
   run(['start']);
   run(['db', 'query', '--file', pgTapSetup]);
   run(['test', 'db']);
+  run(['db', 'query', '--file', concurrencySeed]);
+
+  const status = capture(['status', '-o', 'env']);
+  const apiUrl = status.match(/^API_URL="([^"]+)"$/m)?.[1];
+  const serviceRoleKey = status.match(/^SERVICE_ROLE_KEY="([^"]+)"$/m)?.[1];
+  if (!apiUrl || !serviceRoleKey) {
+    throw new Error('Could not read local Supabase API URL and service role key from CLI status.');
+  }
+
+  runNode(concurrencyTest, {
+    ...process.env,
+    LOCAL_SUPABASE_API_URL: apiUrl,
+    LOCAL_SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+  });
 } finally {
   if (existsSync(temporaryMigration)) unlinkSync(temporaryMigration);
 }
