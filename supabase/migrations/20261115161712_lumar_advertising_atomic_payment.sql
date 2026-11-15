@@ -1,4 +1,4 @@
--- LUMAR advertising atomic Stripe payment transition — PREPARED, NOT APPLIED.
+-- LUMAR advertising atomic Stripe payment transition — applied to production on 2026-11-15.
 -- Depends on the advertising base and order-creation migrations.
 -- This RPC does not verify Stripe signatures. The server webhook must verify the raw body,
 -- test/live mode, paid status, amount, currency and Checkout Session before calling it.
