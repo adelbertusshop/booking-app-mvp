@@ -65,7 +65,7 @@ copyFileSync(fixture, temporaryMigration);
 
 try {
   if (!existsSync(config)) run(['init']);
-  run(['start']);
+  run(['start', '--exclude', 'realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor']);
   run(['db', 'query', '--file', pgTapSetup]);
   run(['test', 'db']);
   run(['db', 'query', '--file', concurrencySeed]);
