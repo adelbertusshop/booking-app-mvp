@@ -51,6 +51,8 @@ Kod reklamowy został selektywnie przeniesiony do gałęzi opartej na aktualnym 
 Dodano:
 
 - `supabase/tests/database/advertising_security.test.sql` — 20 asercji struktury, RLS, grantów, funkcji i uprawnień;
+- `supabase/tests/database/advertising_rpc.test.sql` — 14 testów działania idempotencji zamówień i przejść płatności/moderacji;
+- `supabase/tests/fixtures/enable_pgtap.sql.fixture` — instaluje pgTAP przed osobnymi transakcjami testów;
 - `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalne testowe tabele `public.salons` i `public.appointments`, potrzebne do odtworzenia wcześniejszej migracji rezerwacji oraz FK reklam; używane wyłącznie lokalnie;
 - `scripts/test-advertising-db.mjs` — uruchamia lokalny Supabase, wykonuje testy i usuwa tymczasową migrację-fixture;
 - skrypt npm: `npm run test:db`.
@@ -70,7 +72,7 @@ Jeśli `supabase/config.toml` już istnieje, pomiń `npx supabase init`. Po zako
 npx supabase stop
 ```
 
-Testy pgTAP obejmują na tym etapie strukturę i granice dostępu. Nie zastępują jeszcze testów transakcyjnych RPC, równoległych żądań, duplikatów webhooków ani testów pełnego przepływu Stripe. Te przypadki pozostają kolejnym etapem.
+Testy pgTAP obejmują strukturę, granice dostępu, idempotentne ponowienie zamówienia, odrzucenie ponownego użycia klucza z innym hashem, poprawną zmianę statusu po płatności, duplikat webhooka i odrzucenie niezgodnej kwoty/trybu. Nadal pozostają testy równoległych żądań, retry po wygaśnięciu sesji Checkout oraz pełny przepływ webhooka Stripe.
 
 ## CI
 
