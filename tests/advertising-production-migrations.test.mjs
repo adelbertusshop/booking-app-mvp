@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const base = await readFile(new URL('../supabase/migrations/20261115171000_lumar_advertising_base.sql', import.meta.url), 'utf8');
-const order = await readFile(new URL('../supabase/migrations/20261115171100_lumar_advertising_order_creation.sql', import.meta.url), 'utf8');
-const payment = await readFile(new URL('../supabase/migrations/20261115171200_lumar_advertising_atomic_payment.sql', import.meta.url), 'utf8');
+const base = await readFile(new URL('../supabase/migrations/20261115161707_lumar_advertising_base.sql', import.meta.url), 'utf8');
+const order = await readFile(new URL('../supabase/migrations/20261115161709_lumar_advertising_order_creation.sql', import.meta.url), 'utf8');
+const payment = await readFile(new URL('../supabase/migrations/20261115161712_lumar_advertising_atomic_payment.sql', import.meta.url), 'utf8');
 const checkout = await readFile(new URL('../app/api/advertising/checkout/route.ts', import.meta.url), 'utf8');
 const webhook = await readFile(new URL('../app/api/advertising/webhook/route.ts', import.meta.url), 'utf8');
 const auth = await readFile(new URL('../lib/advertising/auth.ts', import.meta.url), 'utf8');
 
-test('production advertising migrations are explicitly prepared and transactional', () => {
+test('production advertising migration sources match applied history and are transactional', () => {
   for (const migration of [base, order, payment]) {
-    assert.match(migration, /PREPARED, NOT APPLIED/i);
+    assert.match(migration, /applied to production on 2026-11-15/i);
     assert.match(migration, /^begin;/m);
     assert.match(migration, /^commit;/m);
   }
