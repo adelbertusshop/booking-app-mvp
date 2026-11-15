@@ -1,0 +1,3 @@
+-- Install pgTAP outside the individual test transactions so it persists
+-- across every file executed by the Supabase test runner.
+create extension if not exists pgtap with schema extensions;
