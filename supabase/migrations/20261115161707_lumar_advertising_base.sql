@@ -1,4 +1,4 @@
--- LUMAR advertising schema for production — PREPARED, NOT APPLIED.
+-- LUMAR advertising schema for production — applied to production on 2026-11-15.
 -- Reconciled against the isolated LUMAR Preview schema on 2026-11-15.
 -- No client-facing policies are created. All access is through authenticated server routes.
 -- This migration creates schema objects only; it does not enable live Stripe payments.
