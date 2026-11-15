@@ -10,7 +10,11 @@ import {
   authenticateAdvertisingRequest,
   verifyAdvertisingSalonOwnership,
 } from '@/lib/advertising/auth';
-import { createAdvertisingCheckoutSession } from '@/lib/advertising/stripe';
+import {
+  createAdvertisingCheckoutSession,
+  getAdvertisingCheckoutIdempotencyKey,
+  retrieveAdvertisingCheckoutSession,
+} from '@/lib/advertising/stripe';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -200,31 +204,88 @@ export async function POST(request: Request) {
     return fail('Nieprawidłowa konfiguracja adresu aplikacji.', 503);
   }
 
+  const { data: currentOrder, error: currentOrderError } = await auth.context.supabase
+    .from('ad_orders')
+    .select('status, stripe_checkout_session_id')
+    .eq('id', order.order_id)
+    .eq('advertiser_user_id', auth.context.user.id)
+    .maybeSingle();
+
+  if (currentOrderError || !currentOrder) {
+    return fail('Nie udało się odczytać stanu zamówienia reklamowego.', 503);
+  }
+  if (currentOrder.status !== 'pending') {
+    return fail('To zamówienie nie oczekuje już na płatność.', 409);
+  }
+
+  const checkoutInput = {
+    orderId: order.order_id,
+    campaignId: order.campaign_id,
+    advertiserUserId: auth.context.user.id,
+    packageName: pkg.name,
+    description: 'Reklama LUMAR — ' + durationDays + ' dni',
+    amountMinor,
+    customerEmail: auth.context.user.email ?? undefined,
+    successUrl: origin + '/reklamy?payment_return=1&session_id={CHECKOUT_SESSION_ID}',
+    cancelUrl: origin + '/reklamy?payment_cancelled=1',
+  };
+
   try {
-    const session = await createAdvertisingCheckoutSession({
-      orderId: order.order_id,
-      campaignId: order.campaign_id,
-      advertiserUserId: auth.context.user.id,
-      packageName: pkg.name,
-      description: 'Reklama LUMAR — ' + durationDays + ' dni',
-      amountMinor,
-      customerEmail: auth.context.user.email ?? undefined,
-      successUrl: origin + '/reklamy?payment_return=1&session_id={CHECKOUT_SESSION_ID}',
-      cancelUrl: origin + '/reklamy?payment_cancelled=1',
-    });
+    let session: Awaited<ReturnType<typeof createAdvertisingCheckoutSession>>;
+    const previousSessionId = currentOrder.stripe_checkout_session_id;
+
+    if (previousSessionId) {
+      const previousSession = await retrieveAdvertisingCheckoutSession(previousSessionId);
+      const metadata = previousSession.metadata ?? {};
+      const belongsToThisOrder =
+        previousSession.livemode === false &&
+        previousSession.mode === 'payment' &&
+        previousSession.currency === 'pln' &&
+        previousSession.amount_total === amountMinor &&
+        previousSession.client_reference_id === order.order_id &&
+        metadata.order_id === order.order_id &&
+        metadata.campaign_id === order.campaign_id &&
+        metadata.advertiser_user_id === auth.context.user.id;
+
+      if (!belongsToThisOrder) {
+        return fail('Zapamiętana sesja Stripe nie pasuje do tego zamówienia.', 502);
+      }
+
+      if (previousSession.status === 'open' && previousSession.url) {
+        session = previousSession;
+      } else if (previousSession.status === 'expired' && previousSession.payment_status === 'unpaid') {
+        // The old session ID forms a stable retry key. Concurrent retries for
+        // the same expired session therefore receive the same replacement.
+        session = await createAdvertisingCheckoutSession(
+          checkoutInput,
+          getAdvertisingCheckoutIdempotencyKey(order.order_id, previousSession.id),
+        );
+      } else {
+        return fail('Sesja płatnicza została już zakończona lub wymaga potwierdzenia. Odśwież zamówienie.', 409);
+      }
+    } else {
+      session = await createAdvertisingCheckoutSession(
+        checkoutInput,
+        getAdvertisingCheckoutIdempotencyKey(order.order_id),
+      );
+    }
 
     if (session.livemode || !session.url || session.status !== 'open') {
       return fail('Stripe zwrócił nieprawidłową sesję testową. Nie przekierowano do płatności.', 502);
     }
 
-    const { error: saveError } = await auth.context.supabase
-      .from('ad_orders')
-      .update({ stripe_checkout_session_id: session.id, updated_at: new Date().toISOString() })
-      .eq('id', order.order_id)
-      .eq('advertiser_user_id', auth.context.user.id)
-      .eq('status', 'pending');
+    if (session.id !== previousSessionId) {
+      const { error: saveError } = await auth.context.supabase
+        .from('ad_orders')
+        .update({ stripe_checkout_session_id: session.id, updated_at: new Date().toISOString() })
+        .eq('id', order.order_id)
+        .eq('advertiser_user_id', auth.context.user.id)
+        .eq('status', 'pending');
 
-    if (saveError) return fail('Sesja płatnicza została utworzona, ale nie udało się zapisać jej w zamówieniu. Skontaktuj się z obsługą.', 503);
+      if (saveError) {
+        return fail('Sesja płatnicza została utworzona, ale nie udało się zapisać jej w zamówieniu. Skontaktuj się z obsługą.', 503);
+      }
+    }
 
     return NextResponse.json({
       orderId: order.order_id,
@@ -234,6 +295,6 @@ export async function POST(request: Request) {
       mode: 'test',
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    return fail('Nie udało się utworzyć testowej sesji płatniczej.', 502);
+    return fail('Nie udało się utworzyć lub odnowić testowej sesji płatniczej.', 502);
   }
 }
