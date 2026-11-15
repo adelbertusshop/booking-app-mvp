@@ -23,9 +23,9 @@ test('all advertising tables keep RLS enabled and deny direct client table grant
   }
   assert.match(base, /revoke all on table public\.ad_campaigns, public\.ad_orders, public\.ad_events,[\s\S]*?from public, anon, authenticated;/i);
   assert.match(base, /grant all on table public\.ad_campaigns, public\.ad_orders, public\.ad_events,[\s\S]*?to service_role;/i);
-  assert.match(order, /alter table public\\.ad_order_idempotency enable row level security;/i);
-  assert.match(order, /revoke all on table public\\.ad_order_idempotency from public, anon, authenticated;/i);
-  assert.match(order, /grant all on table public\\.ad_order_idempotency to service_role;/i);
+  assert.match(order, /alter table public\.ad_order_idempotency enable row level security;/i);
+  assert.match(order, /revoke all on table public\.ad_order_idempotency from public, anon, authenticated;/i);
+  assert.match(order, /grant all on table public\.ad_order_idempotency to service_role;/i);
 });
 
 test('privileged RPC functions have a pinned search_path and service-role-only execution', () => {
