@@ -13,7 +13,7 @@ const config = path.join(root, 'supabase/config.toml');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 function run(args) {
-  const result = spawnSync(npx, ['supabase', ...args], {
+  const result = spawnSync(npx, ['--yes', 'supabase', ...args], {
     cwd: root,
     stdio: 'inherit',
     shell: process.platform === 'win32',
