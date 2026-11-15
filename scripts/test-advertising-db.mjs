@@ -47,6 +47,7 @@ function runNode(scriptPath, env) {
     cwd: root,
     stdio: 'inherit',
     env,
+    timeout: 120000,
   });
 
   if (result.error) throw result.error;
