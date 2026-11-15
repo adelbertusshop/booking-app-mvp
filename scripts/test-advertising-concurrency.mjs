@@ -11,6 +11,12 @@ if (!apiUrl || !serviceRoleKey) {
 
 const supabase = createClient(apiUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
+  global: {
+    fetch: (url, init = {}) => fetch(url, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(30000),
+    }),
+  },
 });
 
 const advertiserUserId = '7f5e2a10-7d45-4d8a-9a90-100000000099';
