@@ -51,11 +51,11 @@ Kod reklamowy został selektywnie przeniesiony do gałęzi opartej na aktualnym 
 Dodano:
 
 - `supabase/tests/database/advertising_security.test.sql` — 20 asercji struktury, RLS, grantów, funkcji i uprawnień;
-- `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalny testowy wymóg FK do `public.salons`, używany wyłącznie lokalnie;
+- `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalne testowe tabele `public.salons` i `public.appointments`, potrzebne do odtworzenia wcześniejszej migracji rezerwacji oraz FK reklam; używane wyłącznie lokalnie;
 - `scripts/test-advertising-db.mjs` — uruchamia lokalny Supabase, wykonuje testy i usuwa tymczasową migrację-fixture;
 - skrypt npm: `npm run test:db`.
 
-Fixture jest kopiowany tymczasowo do katalogu migracji pod timestampem wcześniejszym niż migracje reklamowe, aby lokalna, czysta baza miała minimalną tabelę `salons`. Skrypt usuwa ten plik po teście. Fixture nie jest migracją produkcyjną i nie może być wdrażany na zdalny projekt.
+Fixture jest kopiowany tymczasowo do katalogu migracji pod wersją wcześniejszą niż starsza migracja rezerwacji, aby lokalna, czysta baza miała minimalną tabelę `salons`. Skrypt usuwa ten plik po teście. Fixture nie jest migracją produkcyjną i nie może być wdrażany na zdalny projekt.
 
 Wymagania do uruchomienia lokalnego: Docker Desktop uruchomiony oraz Supabase CLI dostępny przez `npx`. W katalogu projektu:
 
