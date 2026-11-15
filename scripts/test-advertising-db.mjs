@@ -10,6 +10,7 @@ const temporaryMigration = path.join(
   'supabase/migrations/202610050800_test_only_salon_prerequisite.sql'
 );
 const config = path.join(root, 'supabase/config.toml');
+const pgTapSetup = path.join(root, 'supabase/tests/fixtures/enable_pgtap.sql.fixture');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 function run(args) {
@@ -36,6 +37,7 @@ copyFileSync(fixture, temporaryMigration);
 try {
   if (!existsSync(config)) run(['init']);
   run(['start']);
+  run(['db', 'query', '--file', pgTapSetup]);
   run(['test', 'db']);
 } finally {
   if (existsSync(temporaryMigration)) unlinkSync(temporaryMigration);
