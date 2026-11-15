@@ -54,12 +54,13 @@ Dodano:
 - `supabase/tests/database/advertising_rpc.test.sql` — 14 testów działania idempotencji zamówień i przejść płatności/moderacji;
 - `supabase/tests/fixtures/enable_pgtap.sql.fixture` — instaluje pgTAP przed osobnymi transakcjami testów;
 - `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalne testowe tabele `public.salons` i `public.appointments`, potrzebne do odtworzenia wcześniejszej migracji rezerwacji oraz FK reklam; używane wyłącznie lokalnie;
-- `scripts/test-advertising-db.mjs` — uruchamia lokalny Supabase, wykonuje testy i usuwa tymczasową migrację-fixture;
+- `scripts/test-advertising-db.mjs` — uruchamia wymagane lokalne usługi Supabase, wykonuje pgTAP, a następnie test 12 równoległych wywołań RPC; fixture migracyjny usuwa po teście;
+- `scripts/test-advertising-concurrency.mjs` — sprawdza, że 12 równoległych żądań tworzy dokładnie jedno zamówienie i jedną kampanię;
 - skrypt npm: `npm run test:db`.
 
 Fixture jest kopiowany tymczasowo do katalogu migracji pod wersją wcześniejszą niż starsza migracja rezerwacji, aby lokalna, czysta baza miała minimalną tabelę `salons`. Skrypt usuwa ten plik po teście. Fixture nie jest migracją produkcyjną i nie może być wdrażany na zdalny projekt.
 
-Wymagania do uruchomienia lokalnego: Docker Desktop uruchomiony oraz Supabase CLI dostępny przez `npx`. W katalogu projektu:
+Wymagania do uruchomienia lokalnego: Docker Desktop uruchomiony (zalecane co najmniej 7 GB RAM) oraz Supabase CLI dostępny przez `npx`. Skrypt wyłącza niepotrzebne usługi (Realtime, Storage, Studio itp.) i zostawia bazę, Auth, Kong oraz PostgREST. W katalogu projektu:
 
 ```bash
 npx supabase init
@@ -72,7 +73,7 @@ Jeśli `supabase/config.toml` już istnieje, pomiń `npx supabase init`. Po zako
 npx supabase stop
 ```
 
-Testy pgTAP obejmują strukturę, granice dostępu, idempotentne ponowienie zamówienia, odrzucenie ponownego użycia klucza z innym hashem, poprawną zmianę statusu po płatności, duplikat webhooka i odrzucenie niezgodnej kwoty/trybu. Nadal pozostają testy równoległych żądań, retry po wygaśnięciu sesji Checkout oraz pełny przepływ webhooka Stripe.
+Testy pgTAP obejmują strukturę, granice dostępu, idempotentne ponowienie zamówienia, odrzucenie ponownego użycia klucza z innym hashem, poprawną zmianę statusu po płatności, duplikat webhooka i odrzucenie niezgodnej kwoty/trybu. Test integracyjny wykonuje 12 równoległych wywołań RPC. Nadal pozostają testy retry po wygaśnięciu sesji Checkout oraz pełny przepływ webhooka Stripe.
 
 ## CI
 
