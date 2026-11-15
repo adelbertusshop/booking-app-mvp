@@ -1,73 +1,98 @@
-# LUMAR — przygotowanie migracji reklamowej na produkcję
+# LUMAR — migracje reklamowe i plan testów
 
-Data audytu: 2026-11-15  
-Status: **PRZYGOTOWANE DO REVIEW — NIC NIE ZASTOSOWANO NA PRODUKCJI**
+Data wdrożenia schematu: 2026-11-15  
+Status: **TRZY MIGRACJE ZASTOSOWANE NA PRODUKCJI; TESTY APLIKACYJNE I PG TAP W TOKU**
 
-## Zakres
+## Stan produkcji po wdrożeniu
 
-Pakiet zawiera trzy migracje schematu bazy danych oraz selektywnie przeniesiony kod modułu reklamowego. Same pliki SQL obejmują:
-- kampanie reklamowe,
-- zamówienia i snapshot ceny,
-- zdarzenia emisji,
-- inbox webhooków Stripe,
-- klucz idempotencji i atomowe utworzenie zamówienia,
-- atomowe przejście opłaconego zamówienia do moderacji.
+Projekt produkcyjny: `cnfrbelkckbtkzhwyxqm`.
 
-PR zawiera też API reklamowe, katalog cenowy, moduł Stripe w trybie testowym, stronę oferty, historię zamówień i panel moderacji. Testowy Checkout i webhook są blokowane przy `VERCEL_ENV=production`; helper Stripe akceptuje wyłącznie klucze `sk_test_`. Nie zawiera płatności live ani zmian sekretów Vercel. Po płatności kampanie trafiają wyłącznie do `pending_review`; baza nie aktywuje reklam samodzielnie.
+Zastosowano trzy migracje:
 
-## Ustalenia z audytu
+1. `20261115161707_lumar_advertising_base.sql`
+2. `20261115161709_lumar_advertising_order_creation.sql`
+3. `20261115161712_lumar_advertising_atomic_payment.sql`
 
-### Produkcja
-- Projekt produkcyjny: `cnfrbelkckbtkzhwyxqm`.
-- Tabele `ad_*` nie istnieją w schemacie `public`.
-- Historia migracji produkcji kończy się na `20261024115901_drop_global_appointment_time_unique`.
-- Nie wykonano żadnego zapisu ani DDL na produkcji.
+Historia migracji Supabase potwierdza wszystkie trzy wpisy. Po wdrożeniu zweryfikowano:
 
-### Preview
-- Projekt testowy: `vicfscuointkoksevocs`.
-- Istnieją tabele `ad_campaigns`, `ad_orders`, `ad_events`, `ad_order_idempotency`, `ad_stripe_webhook_events`.
-- Istnieją RPC `lumar_create_advertising_order` i `lumar_apply_advertising_payment_success`.
-- Rzeczywiste definicje kolumn, ograniczeń i funkcji porównano z pakietem migracji.
-- W Preview wszystkie pięć tabel ma RLS włączone, ale nie ma polityk. Role `anon` i `authenticated` mają jednak szerokie granty tabelowe. RLS bez polityk blokuje im dostęp do wierszy, ale granty niepotrzebnie pozostają. Nowy pakiet jawnie odbiera granty `PUBLIC`, `anon` i `authenticated`, pozostawiając dostęp serwerowy `service_role`.
-- Obie funkcje RPC mają EXECUTE wyłącznie dla `service_role`. W nowym pakiecie zachowano ten model i zawężono `search_path` funkcji SECURITY DEFINER do `pg_catalog`; odwołania do tabel są kwalifikowane schematem `public`.
+- pięć tabel reklamowych istnieje: `ad_campaigns`, `ad_orders`, `ad_events`, `ad_stripe_webhook_events`, `ad_order_idempotency`;
+- RLS jest włączone na wszystkich pięciu tabelach;
+- tabele nie mają bezpośrednich grantów dla `PUBLIC`, `anon` ani `authenticated`;
+- dostęp tabelowy otrzymał `service_role`;
+- obie funkcje RPC są `SECURITY DEFINER`, mają `search_path=pg_catalog` i EXECUTE dla `service_role`, bez EXECUTE dla `anon` i `authenticated`;
+- nowe tabele są puste — migracje nie przenosiły ani nie tworzyły zamówień;
+- istniejące tabele rezerwacji, salonów i klientów nie były modyfikowane przez te migracje.
 
-### Różnica historii migracji
-Preview ma trzy wpisy reklamowe w swoim ledgerze pod wersjami z 1 listopada 2026. Nazwy i wersje tych wpisów nie odpowiadają dokładnie timestampom plików draft w gałęzi feature. Produkcja nie ma tych wpisów. Nie należy kopiować ani naprawiać historii Preview na produkcji. Nowe pliki mają nowe timestampy po ostatniej migracji produkcyjnej i tworzą schemat od zera.
+Nie uruchomiono płatności live ani nie wdrożono nowego kodu reklamowego na produkcję.
 
-## Zawartość pakietu
+## Bezpieczeństwo — wynik po migracjach
 
-1. `20261115171000_lumar_advertising_base.sql` — cztery podstawowe tabele, indeksy, RLS, jawne granty.
-2. `20261115171100_lumar_advertising_order_creation.sql` — tabela idempotencji i RPC tworzące kampanię oraz zamówienie w jednej transakcji.
-3. `20261115171200_lumar_advertising_atomic_payment.sql` — RPC rozliczające zweryfikowany webhook w jednej transakcji i ustawiające kampanię na `pending_review`.
+Supabase Security Advisor po wdrożeniu zgłosił:
 
-## Warunki przed zastosowaniem na produkcji
+- pięć informacji `RLS Enabled No Policy` dla nowych tabel reklamowych — to zamierzony model: RLS jest włączone, ale dostęp do tabel jest odebrany rolom klienckim; dostęp odbywa się przez serwerowe API z `service_role`;
+- trzy podobne informacje dotyczące istniejących tabel `admin_settings`, `bookings` i `providers` — nie są częścią wdrożenia reklam;
+- ostrzeżenie o wyłączonej ochronie haseł przed hasłami ujawnionymi w wyciekach — ustawienie Auth do osobnego przeglądu.
 
-- Wykonać backup i potwierdzić docelowy projekt po jego ref.
-- Przejrzeć SQL i porównać go z aktualnym schematem produkcyjnym bez założeń o stanie Preview.
-- Uruchomić migracje na odizolowanej bazie testowej, następnie wykonać testy:
-  - RLS/grants: brak bezpośredniego dostępu `anon` i `authenticated`; dostęp serwerowy `service_role`.
-  - RPC: brak EXECUTE dla `PUBLIC`, `anon`, `authenticated`; EXECUTE dla `service_role`.
-  - idempotencja: równoległe żądania z tym samym kluczem, ponowne użycie klucza z innym hashem, rollback przy błędzie.
-  - płatności: niezgodny event/session/order/kwota/waluta/mode; duplikat eventu; równoległe webhooki; kampania zawsze `pending_review` po płatności.
-  - integracja: utworzenie Checkout, zapis session ID, ponowienie żądania, wygaśnięcie sesji i ponowna próba.
-- Sprawdzić Supabase Security Advisors po zastosowaniu.
-- Kod aplikacji został już przeniesiony selektywnie do tej gałęzi opartej o aktualny `main`; nie scalono całej gałęzi `feature/lumar-advertising-plan`.
-- CI ma uruchamiać `npm test`, `npm run typecheck` i `npm run build`. Vercel Preview dla nowej gałęzi wymaga osobnego przypisania zmiennych Supabase; nie kopiowano automatycznie branch-scoped sekretów z `debug/lumar-orders-preview`.
-- Wdrożyć bazę i aplikację jako osobne, kontrolowane kroki. Płatności live pozostają wyłączone do osobnej decyzji prawno-księgowej.
+Health Advisor nie zwrócił problemów.
 
-## Istotne ograniczenia
+## Kod aplikacji
 
-- `SECURITY DEFINER` RPC zakłada, że route najpierw uwierzytelni użytkownika, zweryfikuje własność salonu i wyliczy cenę z serwerowego katalogu. Funkcja nie zastępuje tych kontroli.
-- Webhook musi weryfikować podpis na surowym body, status paid, tryb, kwotę, walutę i zgodność Checkout Session. RPC nie weryfikuje podpisu Stripe.
-- `service_role` nie może trafić do klienta ani zmiennej `NEXT_PUBLIC_*`.
-- Migracje są celowo bez `IF NOT EXISTS`: jeśli obiekt pojawi się niespodziewanie przed wdrożeniem, migracja ma przerwać pracę zamiast po cichu zaakceptować nieznany stan.
-- Ten PR nie stosuje migracji do żadnego projektu Supabase i nie uruchamia płatności live. Testowy Checkout jest dostępny wyłącznie poza wdrożeniem produkcyjnym.
+Kod reklamowy został selektywnie przeniesiony do gałęzi opartej na aktualnym `main`; nie scalono całej gałęzi `feature/lumar-advertising-plan`.
 
-## Zmiany poza zakresem
+- API: checkout, moderation, orders, public, quote, webhook.
+- Strony: oferta reklam, historia zamówień, panel moderacji.
+- Checkout i webhook testowy mają blokadę przy `VERCEL_ENV=production`.
+- Helper Stripe przyjmuje wyłącznie klucze `sk_test_`.
+- Po potwierdzeniu płatności kampania przechodzi do `pending_review`, nigdy automatycznie do `active`.
+- Płatności live pozostają wyłączone do osobnej decyzji prawno-księgowej.
 
-Nie zmieniono:
-- produkcyjnej bazy Supabase,
-- produkcyjnych env vars ani sekretów Stripe,
-- `main`,
-- logiki rezerwacji, salonów ani klientów,
-- statusów istniejących zamówień Preview.
+## Testy lokalne Supabase / pgTAP
+
+Dodano:
+
+- `supabase/tests/database/advertising_security.test.sql` — 20 asercji struktury, RLS, grantów, funkcji i uprawnień;
+- `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalny testowy wymóg FK do `public.salons`, używany wyłącznie lokalnie;
+- `scripts/test-advertising-db.mjs` — uruchamia lokalny Supabase, wykonuje testy i usuwa tymczasową migrację-fixture;
+- skrypt npm: `npm run test:db`.
+
+Fixture jest kopiowany tymczasowo do katalogu migracji pod timestampem wcześniejszym niż migracje reklamowe, aby lokalna, czysta baza miała minimalną tabelę `salons`. Skrypt usuwa ten plik po teście. Fixture nie jest migracją produkcyjną i nie może być wdrażany na zdalny projekt.
+
+Wymagania do uruchomienia lokalnego: Docker Desktop uruchomiony oraz Supabase CLI dostępny przez `npx`. W katalogu projektu:
+
+```bash
+npx supabase init
+npm run test:db
+```
+
+Jeśli `supabase/config.toml` już istnieje, pomiń `npx supabase init`. Po zakończeniu można zatrzymać lokalny stos:
+
+```bash
+npx supabase stop
+```
+
+Testy pgTAP obejmują na tym etapie strukturę i granice dostępu. Nie zastępują jeszcze testów transakcyjnych RPC, równoległych żądań, duplikatów webhooków ani testów pełnego przepływu Stripe. Te przypadki pozostają kolejnym etapem.
+
+## CI
+
+Workflow GitHub Actions uruchamia:
+- `npm test`,
+- `npm run test:db` (lokalny Supabase + pgTAP),
+- `npm run typecheck`,
+- `npm run build`.
+
+Poprzedni przebieg CI przed dodaniem pgTAP zakończył się sukcesem dla testów Node, typecheck i build. Nowy przebieg musi jeszcze potwierdzić działanie testów bazodanowych.
+
+## Ograniczenia i zabezpieczenia
+
+- Nie wykonano testu na odizolowanej zdalnej gałęzi, ponieważ plan Supabase nie udostępnia tej funkcji.
+- Lokalny Docker nie jest dostępny w środowisku wykonawczym asystenta; test pgTAP ma być uruchomiony przez CI i lokalnie na komputerze deweloperskim.
+- Nie kopiowano sekretów Vercel ani Supabase pomiędzy środowiskami.
+- Route musi uwierzytelnić użytkownika, sprawdzić własność salonu i pobrać cenę z katalogu serwerowego przed wywołaniem RPC.
+- Webhook musi zweryfikować podpis na surowym body, status płatności, tryb, kwotę, walutę i zgodność Checkout Session. Funkcja SQL nie weryfikuje podpisu Stripe.
+- Znany przypadek do przetestowania: ponowienie checkoutu po wygaśnięciu sesji Stripe i zachowanie klucza idempotencji.
+- Nie wolno umieszczać `service_role` w kliencie ani w zmiennych `NEXT_PUBLIC_*`.
+
+## Linki robocze
+
+- Pull request: https://github.com/adelbertusshop/booking-app-mvp/pull/17
+- Testy lokalne: `npm run test:db`
