@@ -1,12 +1,14 @@
 -- TEST-ONLY records for the parallel idempotency integration test.
 -- Applied only to the local Supabase stack by scripts/test-advertising-db.mjs.
-insert into auth.users (id, email)
-values (
-  '7f5e2a10-7d45-4d8a-9a90-100000000099',
-  'lumar-advertising-concurrency@example.test'
+with seeded_user as (
+  insert into auth.users (id, email)
+  values (
+    '7f5e2a10-7d45-4d8a-9a90-100000000099',
+    'lumar-advertising-concurrency@example.test'
+  )
+  on conflict (id) do nothing
+  returning id
 )
-on conflict (id) do nothing;
-
 insert into public.salons (id)
 values ('7f5e2a10-7d45-4d8a-9a90-200000000099')
 on conflict (id) do nothing;
