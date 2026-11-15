@@ -1,0 +1,6 @@
+-- TEST-ONLY prerequisite for the advertising schema tests.
+-- This file is copied temporarily into supabase/migrations by scripts/test-advertising-db.mjs.
+-- It is never part of the production migration set.
+create table public.salons (
+  id uuid primary key default gen_random_uuid()
+);
