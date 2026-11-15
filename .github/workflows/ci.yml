@@ -23,6 +23,9 @@ jobs:
       - name: Advertising and repository tests
         run: npm test
 
+      - name: Local Supabase pgTAP database tests
+        run: npm run test:db
+
       - name: TypeScript typecheck
         run: npm run typecheck
 
