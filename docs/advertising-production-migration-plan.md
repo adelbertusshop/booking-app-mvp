@@ -56,6 +56,7 @@ Dodano:
 - `supabase/tests/fixtures/salon_prerequisite.sql.fixture` — minimalne testowe tabele `public.salons` i `public.appointments`, potrzebne do odtworzenia wcześniejszej migracji rezerwacji oraz FK reklam; używane wyłącznie lokalnie;
 - `scripts/test-advertising-db.mjs` — uruchamia wymagane lokalne usługi Supabase, wykonuje pgTAP, a następnie test 12 równoległych wywołań RPC; fixture migracyjny usuwa po teście;
 - `scripts/test-advertising-concurrency.mjs` — sprawdza, że 12 równoległych żądań tworzy dokładnie jedno zamówienie i jedną kampanię;
+- `tests/advertising-checkout-retry.test.mjs` — sprawdza reguły ponownego użycia i odnawiania sesji Stripe;
 - skrypt npm: `npm run test:db`.
 
 Fixture jest kopiowany tymczasowo do katalogu migracji pod wersją wcześniejszą niż starsza migracja rezerwacji, aby lokalna, czysta baza miała minimalną tabelę `salons`. Skrypt usuwa ten plik po teście. Fixture nie jest migracją produkcyjną i nie może być wdrażany na zdalny projekt.
@@ -73,7 +74,7 @@ Jeśli `supabase/config.toml` już istnieje, pomiń `npx supabase init`. Po zako
 npx supabase stop
 ```
 
-Testy pgTAP obejmują strukturę, granice dostępu, idempotentne ponowienie zamówienia, odrzucenie ponownego użycia klucza z innym hashem, poprawną zmianę statusu po płatności, duplikat webhooka i odrzucenie niezgodnej kwoty/trybu. Test integracyjny wykonuje 12 równoległych wywołań RPC. Nadal pozostają testy retry po wygaśnięciu sesji Checkout oraz pełny przepływ webhooka Stripe.
+Testy pgTAP obejmują strukturę, granice dostępu, idempotentne ponowienie zamówienia, odrzucenie ponownego użycia klucza z innym hashem, poprawną zmianę statusu po płatności, duplikat webhooka i odrzucenie niezgodnej kwoty/trybu. Test integracyjny wykonuje 12 równoległych wywołań RPC. Obsługa wygasłej sesji Checkout została poprawiona: otwarta sesja jest ponownie używana, a wygasła i nieopłacona dostaje nowy, deterministyczny klucz idempotencji oparty na ID poprzedniej sesji. Pozostaje rzeczywisty test tej ścieżki na kluczach Stripe test oraz pełny przepływ webhooka.
 
 ## CI
 
