@@ -1,4 +1,4 @@
--- LUMAR advertising order idempotency and atomic order creation — PREPARED, NOT APPLIED.
+-- LUMAR advertising order idempotency and atomic order creation — applied to production on 2026-11-15.
 -- Depends on 20261115171000_lumar_advertising_base.sql.
 -- The RPC is a server-only boundary. The API must authenticate, verify salon ownership,
 -- and derive package, placement and amount from the server-side catalog before calling it.
