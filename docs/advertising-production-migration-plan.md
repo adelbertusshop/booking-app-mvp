@@ -5,7 +5,7 @@ Status: **PRZYGOTOWANE DO REVIEW — NIC NIE ZASTOSOWANO NA PRODUKCJI**
 
 ## Zakres
 
-Ten pakiet obejmuje wyłącznie schemat bazy danych modułu reklamowego:
+Pakiet zawiera trzy migracje schematu bazy danych oraz selektywnie przeniesiony kod modułu reklamowego. Same pliki SQL obejmują:
 - kampanie reklamowe,
 - zamówienia i snapshot ceny,
 - zdarzenia emisji,
@@ -13,7 +13,7 @@ Ten pakiet obejmuje wyłącznie schemat bazy danych modułu reklamowego:
 - klucz idempotencji i atomowe utworzenie zamówienia,
 - atomowe przejście opłaconego zamówienia do moderacji.
 
-Nie zawiera promocji kampanii, uruchomienia płatności live, zmiany sekretów Vercel ani wdrożenia aplikacji. Po migracji kampanie opłacone nadal trafiają do `pending_review`; baza nie aktywuje reklam samodzielnie.
+PR zawiera też API reklamowe, katalog cenowy, moduł Stripe w trybie testowym, stronę oferty, historię zamówień i panel moderacji. Testowy Checkout i webhook są blokowane przy `VERCEL_ENV=production`; helper Stripe akceptuje wyłącznie klucze `sk_test_`. Nie zawiera płatności live ani zmian sekretów Vercel. Po płatności kampanie trafiają wyłącznie do `pending_review`; baza nie aktywuje reklam samodzielnie.
 
 ## Ustalenia z audytu
 
@@ -51,7 +51,8 @@ Preview ma trzy wpisy reklamowe w swoim ledgerze pod wersjami z 1 listopada 2026
   - płatności: niezgodny event/session/order/kwota/waluta/mode; duplikat eventu; równoległe webhooki; kampania zawsze `pending_review` po płatności.
   - integracja: utworzenie Checkout, zapis session ID, ponowienie żądania, wygaśnięcie sesji i ponowna próba.
 - Sprawdzić Supabase Security Advisors po zastosowaniu.
-- Przenieść kod aplikacji selektywnie z feature branch do osobnej, zgodnej z aktualnym `main` zmiany. Nie scalać całej gałęzi `feature/lumar-advertising-plan` (jest rozjechana z main).
+- Kod aplikacji został już przeniesiony selektywnie do tej gałęzi opartej o aktualny `main`; nie scalono całej gałęzi `feature/lumar-advertising-plan`.
+- CI ma uruchamiać `npm test`, `npm run typecheck` i `npm run build`. Vercel Preview dla nowej gałęzi wymaga osobnego przypisania zmiennych Supabase; nie kopiowano automatycznie branch-scoped sekretów z `debug/lumar-orders-preview`.
 - Wdrożyć bazę i aplikację jako osobne, kontrolowane kroki. Płatności live pozostają wyłączone do osobnej decyzji prawno-księgowej.
 
 ## Istotne ograniczenia
@@ -60,7 +61,7 @@ Preview ma trzy wpisy reklamowe w swoim ledgerze pod wersjami z 1 listopada 2026
 - Webhook musi weryfikować podpis na surowym body, status paid, tryb, kwotę, walutę i zgodność Checkout Session. RPC nie weryfikuje podpisu Stripe.
 - `service_role` nie może trafić do klienta ani zmiennej `NEXT_PUBLIC_*`.
 - Migracje są celowo bez `IF NOT EXISTS`: jeśli obiekt pojawi się niespodziewanie przed wdrożeniem, migracja ma przerwać pracę zamiast po cichu zaakceptować nieznany stan.
-- Ten PR nie stosuje migracji do żadnego projektu Supabase i nie uruchamia płatności.
+- Ten PR nie stosuje migracji do żadnego projektu Supabase i nie uruchamia płatności live. Testowy Checkout jest dostępny wyłącznie poza wdrożeniem produkcyjnym.
 
 ## Zmiany poza zakresem
 
