@@ -38,11 +38,9 @@ export async function GET(request: Request) {
     });
   }
 
-  const campaignIds = [...new Set(
-    (data ?? [])
-      .map((order) => order.campaign_id)
-      .filter((id): id is string => Boolean(id)),
-  )];
+  const campaignIds = (data ?? [])
+    .map((order) => order.campaign_id)
+    .filter((id): id is string => Boolean(id));
 
   let campaigns: Array<{
     id: string;
