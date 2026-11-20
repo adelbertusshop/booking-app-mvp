@@ -15,105 +15,139 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const supabase = auth.context.supabase;
+  const userId = auth.context.user.id;
 
-  const [visibleOrders, targetInProject, targetForUser, ordersQuery, targetWithPageProjection] = await Promise.all([
-    supabase
-      .from('ad_orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('advertiser_user_id', auth.context.user.id),
-    supabase
-      .from('ad_orders')
-      .select('id')
-      .eq('id', TARGET_ORDER_ID)
-      .maybeSingle(),
-    supabase
-      .from('ad_orders')
-      .select('id, created_at, advertiser_user_id, status')
-      .eq('id', TARGET_ORDER_ID)
-      .eq('advertiser_user_id', auth.context.user.id)
-      .maybeSingle(),
-    supabase
-      .from('ad_orders')
-      .select(`
-        id,
-        campaign_id,
-        package_id,
-        client_type,
-        duration_days,
-        amount_net_minor,
-        amount_total_minor,
-        currency,
-        status,
-        stripe_checkout_session_id,
-        paid_at,
-        created_at,
-        campaign:ad_campaigns (
-          id,
-          title,
-          placement,
-          placement_slot,
-          status,
-          starts_at,
-          ends_at,
-          created_at
-        )
-      `)
-      .eq('advertiser_user_id', auth.context.user.id)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    supabase
-      .from('ad_orders')
-      .select(`
-        id,
-        campaign_id,
-        package_id,
-        client_type,
-        duration_days,
-        amount_net_minor,
-        amount_total_minor,
-        currency,
-        status,
-        stripe_checkout_session_id,
-        paid_at,
-        created_at,
-        campaign:ad_campaigns (
-          id,
-          title,
-          placement,
-          placement_slot,
-          status,
-          starts_at,
-          ends_at,
-          created_at
-        )
-      `)
-      .eq('id', TARGET_ORDER_ID)
-      .eq('advertiser_user_id', auth.context.user.id)
-      .maybeSingle(),
-  ]);
+  // Run these reads sequentially to avoid confusing a transient replica/snapshot
+  // difference with a filtering or projection problem.
+  const countResult = await supabase
+    .from('ad_orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('advertiser_user_id', userId);
 
-  if (visibleOrders.error || targetInProject.error || targetForUser.error || ordersQuery.error || targetWithPageProjection.error) {
+  const plainIdsResult = await supabase
+    .from('ad_orders')
+    .select('id, created_at, status')
+    .eq('advertiser_user_id', userId)
+    .limit(1000);
+
+  const orderedIdsResult = await supabase
+    .from('ad_orders')
+    .select('id, created_at, status')
+    .eq('advertiser_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const pageProjectionResult = await supabase
+    .from('ad_orders')
+    .select(`
+      id,
+      campaign_id,
+      package_id,
+      client_type,
+      duration_days,
+      amount_net_minor,
+      amount_total_minor,
+      currency,
+      status,
+      stripe_checkout_session_id,
+      paid_at,
+      created_at,
+      campaign:ad_campaigns (
+        id,
+        title,
+        placement,
+        placement_slot,
+        status,
+        starts_at,
+        ends_at,
+        created_at
+      )
+    `)
+    .eq('advertiser_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const targetResult = await supabase
+    .from('ad_orders')
+    .select('id, created_at, advertiser_user_id, status')
+    .eq('id', TARGET_ORDER_ID)
+    .eq('advertiser_user_id', userId)
+    .maybeSingle();
+
+  const targetProjectionResult = await supabase
+    .from('ad_orders')
+    .select(`
+      id,
+      campaign_id,
+      package_id,
+      client_type,
+      duration_days,
+      amount_net_minor,
+      amount_total_minor,
+      currency,
+      status,
+      stripe_checkout_session_id,
+      paid_at,
+      created_at,
+      campaign:ad_campaigns (
+        id,
+        title,
+        placement,
+        placement_slot,
+        status,
+        starts_at,
+        ends_at,
+        created_at
+      )
+    `)
+    .eq('id', TARGET_ORDER_ID)
+    .eq('advertiser_user_id', userId)
+    .maybeSingle();
+
+  const errors = [
+    countResult.error,
+    plainIdsResult.error,
+    orderedIdsResult.error,
+    pageProjectionResult.error,
+    targetResult.error,
+    targetProjectionResult.error,
+  ].filter(Boolean);
+
+  if (errors.length) {
     return NextResponse.json(
       { error: 'Nie udało się wykonać diagnostyki.' },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
 
+  const plainIds = plainIdsResult.data ?? [];
+  const orderedIds = orderedIdsResult.data ?? [];
+  const pageOrders = pageProjectionResult.data ?? [];
+
   return NextResponse.json(
     {
-      diagnostic: 'advertising-order-visibility',
+      diagnostic: 'advertising-order-visibility-v2',
       environment: 'preview',
       authenticated: true,
-      visibleOrdersForAuthenticatedUser: visibleOrders.count ?? 0,
-      ordersReturnedByPageQuery: ordersQuery.data?.length ?? 0,
-      pageOrderIds: (ordersQuery.data ?? []).map((order) => order.id),
-      targetOrderCreatedAt: targetForUser.data?.created_at ?? null,
-      targetOrderStatus: targetForUser.data?.status ?? null,
-      targetOrderExistsInProject: Boolean(targetInProject.data),
-      targetOrderBelongsToAuthenticatedUser: Boolean(targetForUser.data),
-      targetOrderIncludedInPageQuery: Boolean(ordersQuery.data?.some((order) => order.id === TARGET_ORDER_ID)),
-      targetOrderReturnedWithPageProjection: Boolean(targetWithPageProjection.data),
-      targetOrderProjectionHasCampaign: Boolean(targetWithPageProjection.data?.campaign),
+      visibleOrdersForAuthenticatedUser: countResult.count ?? 0,
+      unorderedRowsReturned: plainIds.length,
+      unorderedIds: plainIds.map((order) => order.id),
+      orderedIds: orderedIds.map((order) => order.id),
+      orderedCreatedAt: orderedIds.map((order) => ({
+        id: order.id,
+        createdAt: order.created_at,
+        status: order.status,
+      })),
+      ordersReturnedByPageQuery: pageOrders.length,
+      pageOrderIds: pageOrders.map((order) => order.id),
+      targetOrderCreatedAt: targetResult.data?.created_at ?? null,
+      targetOrderStatus: targetResult.data?.status ?? null,
+      targetOrderExistsForAuthenticatedUser: Boolean(targetResult.data),
+      targetOrderIncludedInUnorderedIds: plainIds.some((order) => order.id === TARGET_ORDER_ID),
+      targetOrderIncludedInOrderedIds: orderedIds.some((order) => order.id === TARGET_ORDER_ID),
+      targetOrderIncludedInPageQuery: pageOrders.some((order) => order.id === TARGET_ORDER_ID),
+      targetOrderReturnedWithPageProjection: Boolean(targetProjectionResult.data),
+      targetOrderProjectionHasCampaign: Boolean(targetProjectionResult.data?.campaign),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
