@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       .maybeSingle(),
     supabase
       .from('ad_orders')
-      .select('id')
+      .select('id, created_at, advertiser_user_id, status')
       .eq('id', TARGET_ORDER_ID)
       .eq('advertiser_user_id', auth.context.user.id)
       .maybeSingle(),
@@ -106,6 +106,9 @@ export async function GET(request: Request) {
       authenticated: true,
       visibleOrdersForAuthenticatedUser: visibleOrders.count ?? 0,
       ordersReturnedByPageQuery: ordersQuery.data?.length ?? 0,
+      pageOrderIds: (ordersQuery.data ?? []).map((order) => order.id),
+      targetOrderCreatedAt: targetForUser.data?.created_at ?? null,
+      targetOrderStatus: targetForUser.data?.status ?? null,
       targetOrderExistsInProject: Boolean(targetInProject.data),
       targetOrderBelongsToAuthenticatedUser: Boolean(targetForUser.data),
       targetOrderIncludedInPageQuery: Boolean(ordersQuery.data?.some((order) => order.id === TARGET_ORDER_ID)),
