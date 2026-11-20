@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 
 const PUBLIC_SLOTS = {
   salon_listing: 'salon_catalog',
+  featured_profile: 'salon_catalog',
   home_screen_banner: 'lumar_pages',
 } as const;
 
@@ -33,6 +34,13 @@ export async function GET(request: Request) {
   }
   const slot = requestedSlot as PublicSlot;
   const placement = PUBLIC_SLOTS[slot];
+  const salonId = url.searchParams.get('salonId');
+  if (slot === 'featured_profile' && (!salonId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(salonId))) {
+    return NextResponse.json(
+      { ads: [] },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -53,14 +61,18 @@ export async function GET(request: Request) {
       },
     });
     const now = new Date().toISOString();
-    const { data, error } = await supabase
+    let query = supabase
       .from('ad_campaigns')
       .select('id, title, body, destination_url, starts_at, ends_at')
       .eq('placement', placement)
       .eq('placement_slot', slot)
       .eq('status', 'active')
       .lte('starts_at', now)
-      .gt('ends_at', now)
+      .gt('ends_at', now);
+
+    if (slot === 'featured_profile') query = query.eq('salon_id', salonId!);
+
+    const { data, error } = await query
       .order('starts_at', { ascending: true })
       .limit(slot === 'salon_listing' ? 6 : 3);
 
