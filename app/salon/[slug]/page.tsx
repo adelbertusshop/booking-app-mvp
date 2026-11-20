@@ -7,6 +7,7 @@ import Link from 'next/link';
 interface Service { id: string; name: string; duration_minutes: number; price?: number; }
 interface Salon { id: string; salon_name: string; slug: string; }
 interface BookedTime { start: string; end: string; }
+interface FeaturedAd { id: string; title: string; body: string | null; destinationUrl: string; }
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
@@ -35,6 +36,7 @@ function generateSlots(openTime: string, closeTime: string, durationMinutes: num
 export default function SalonSlugPage({ params }: { params: { slug: string } }) {
   const slug = params.slug;
   const [salon, setSalon] = useState<Salon | null>(null);
+  const [featuredAd, setFeaturedAd] = useState<FeaturedAd | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -73,6 +75,15 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
 
         if (cancelled) return;
         setSalon(salonData);
+
+        fetch('/api/advertising/public?slot=featured_profile&salonId=' + encodeURIComponent(salonData.id), { cache: 'no-store' })
+          .then((response) => response.ok ? response.json() : { ads: [] })
+          .then((data) => {
+            if (!cancelled) setFeaturedAd(Array.isArray(data.ads) ? data.ads[0] ?? null : null);
+          })
+          .catch(() => {
+            if (!cancelled) setFeaturedAd(null);
+          });
 
         const servicesResponse = await fetch(`/api/services?salonId=${encodeURIComponent(salonData.id)}`);
         if (!servicesResponse.ok) {
@@ -173,6 +184,19 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
           <h1 className="text-3xl font-bold text-amber-400">{salon?.salon_name}</h1>
           <p className="text-zinc-500 text-sm">Zarezerwuj wizytę online</p>
         </div>
+
+        {featuredAd && (
+          <a
+            href={featuredAd.destinationUrl}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="block rounded-xl border border-amber-500/40 bg-zinc-900 p-4 text-left transition-colors hover:border-amber-400"
+          >
+            <span className="inline-flex rounded-full border border-amber-500/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">Polecany · Reklama</span>
+            <h2 className="mt-2 text-base font-bold text-white">{featuredAd.title}</h2>
+            {featuredAd.body && <p className="mt-1 text-xs leading-5 text-zinc-400">{featuredAd.body}</p>}
+          </a>
+        )}
 
         {serviceLoadError ? (
           <div className="text-center py-8 space-y-3">
