@@ -9,19 +9,46 @@ interface Salon {
   slug: string;
 }
 
+interface SponsoredAd {
+  id: string;
+  title: string;
+  body: string | null;
+  destinationUrl: string;
+}
+
 export default function SalonyPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
+  const [ads, setAds] = useState<SponsoredAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    let active = true;
+
     fetch('/api/salons')
       .then((res) => res.json())
       .then((data) => {
+        if (!active) return;
         setSalons((data.salons as Salon[]) || []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+
+    // Ads are optional: a failed ad request must never hide the salon catalogue.
+    fetch('/api/advertising/public', { cache: 'no-store' })
+      .then((res) => res.ok ? res.json() : { ads: [] })
+      .then((data) => {
+        if (active) setAds(Array.isArray(data.ads) ? data.ads : []);
+      })
+      .catch(() => {
+        if (active) setAds([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filtered = salons.filter(s =>
@@ -56,6 +83,28 @@ export default function SalonyPage() {
             className="w-full bg-zinc-950 border border-amber-500/30 focus:border-amber-400 text-white placeholder-zinc-500 rounded-xl px-5 py-3 text-sm outline-none transition-all"
           />
         </div>
+
+        {ads.length > 0 && (
+          <section aria-label="Reklamy sponsorowane" className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-400">Sponsorowane</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ads.map((ad) => (
+                <a
+                  key={ad.id}
+                  href={ad.destinationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className="block rounded-2xl border border-amber-500/40 bg-zinc-950 p-6 transition-colors hover:border-amber-400"
+                >
+                  <span className="inline-flex rounded-full border border-amber-500/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">Reklama</span>
+                  <h2 className="mt-3 text-lg font-bold text-white">{ad.title}</h2>
+                  {ad.body && <p className="mt-2 text-sm leading-6 text-zinc-400">{ad.body}</p>}
+                  <span className="mt-4 inline-block text-sm font-semibold text-amber-300">Sprawdź ofertę →</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Lista salonów */}
         {loading ? (
