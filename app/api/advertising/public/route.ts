@@ -4,6 +4,13 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const PUBLIC_SLOTS = {
+  salon_listing: 'salon_catalog',
+  home_screen_banner: 'lumar_pages',
+} as const;
+
+type PublicSlot = keyof typeof PUBLIC_SLOTS;
+
 function safeHttpsUrl(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2048) return null;
   try {
@@ -15,7 +22,18 @@ function safeHttpsUrl(value: unknown): string | null {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const requestedSlot = url.searchParams.get('slot') ?? 'salon_listing';
+  if (!(requestedSlot in PUBLIC_SLOTS)) {
+    return NextResponse.json(
+      { ads: [] },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  const slot = requestedSlot as PublicSlot;
+  const placement = PUBLIC_SLOTS[slot];
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -38,13 +56,13 @@ export async function GET() {
     const { data, error } = await supabase
       .from('ad_campaigns')
       .select('id, title, body, destination_url, starts_at, ends_at')
-      .eq('placement', 'salon_catalog')
-      .eq('placement_slot', 'salon_listing')
+      .eq('placement', placement)
+      .eq('placement_slot', slot)
       .eq('status', 'active')
       .lte('starts_at', now)
       .gt('ends_at', now)
       .order('starts_at', { ascending: true })
-      .limit(6);
+      .limit(slot === 'salon_listing' ? 6 : 3);
 
     if (error) {
       return NextResponse.json(
