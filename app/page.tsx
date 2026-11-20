@@ -1,8 +1,33 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+type HomeAd = {
+  id: string;
+  title: string;
+  body: string | null;
+  destinationUrl: string;
+};
+
 export default function Home() {
+  const [ads, setAds] = useState<HomeAd[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/advertising/public?slot=home_screen_banner', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : { ads: [] })
+      .then((data) => {
+        if (active) setAds(Array.isArray(data.ads) ? data.ads : []);
+      })
+      .catch(() => {
+        if (active) setAds([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
 
@@ -45,6 +70,27 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {ads.length > 0 && (
+        <section aria-label="Reklamy sponsorowane" className="border-t border-zinc-900 px-4 py-8">
+          <div className="mx-auto grid max-w-5xl gap-4">
+            {ads.map((ad) => (
+              <a
+                key={ad.id}
+                href={ad.destinationUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="block rounded-2xl border border-amber-500/40 bg-zinc-950 p-6 text-left transition-colors hover:border-amber-400"
+              >
+                <span className="inline-flex rounded-full border border-amber-500/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">Reklama</span>
+                <h2 className="mt-3 text-xl font-bold text-white">{ad.title}</h2>
+                {ad.body && <p className="mt-2 text-sm leading-6 text-zinc-400">{ad.body}</p>}
+                <span className="mt-4 inline-block text-sm font-semibold text-amber-300">Sprawdź ofertę →</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* FEATURES */}
       <section className="border-t border-zinc-900 py-16 px-4">
