@@ -100,14 +100,14 @@ export async function GET(request: Request) {
     relationRowsWithOrderAndCampaign: relationOrdered.map((row) => ({
       id: row.id,
       campaignId: row.campaign_id,
-      embeddedCampaignId: row.campaign?.id ?? null,
-      embeddedCampaignPresent: Boolean(row.campaign),
+      embeddedCampaignId: Array.isArray(row.campaign) ? row.campaign[0]?.id ?? null : null,
+      embeddedCampaignPresent: Array.isArray(row.campaign) ? row.campaign.length > 0 : Boolean(row.campaign),
     })),
     targetOrder: target ? {
       id: target.id,
       campaignId: target.campaign_id,
-      embeddedCampaignId: target.campaign?.id ?? null,
-      embeddedCampaignPresent: Boolean(target.campaign),
+      embeddedCampaignId: Array.isArray(target.campaign) ? target.campaign[0]?.id ?? null : null,
+      embeddedCampaignPresent: Array.isArray(target.campaign) ? target.campaign.length > 0 : Boolean(target.campaign),
       createdAt: target.created_at,
       status: target.status,
     } : null,
