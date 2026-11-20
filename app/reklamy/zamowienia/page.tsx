@@ -47,6 +47,8 @@ export default function AdvertisingOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [diagnostic, setDiagnostic] = useState('');
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -65,6 +67,27 @@ export default function AdvertisingOrdersPage() {
       setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas pobierania zamówień.');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const runDiagnostic = useCallback(async () => {
+    setDiagnosticLoading(true);
+    setDiagnostic('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Brak aktywnej sesji. Zaloguj się ponownie.');
+      const response = await fetch('/api/advertising/diagnostics/order-visibility', {
+        headers: { Authorization: 'Bearer ' + session.access_token },
+        cache: 'no-store',
+      });
+      const result = await response.json().catch(() => ({}));
+      setDiagnostic(JSON.stringify({ httpStatus: response.status, ...result }, null, 2));
+    } catch (err) {
+      setDiagnostic(JSON.stringify({
+        error: err instanceof Error ? err.message : 'Nie udało się uruchomić diagnostyki.',
+      }, null, 2));
+    } finally {
+      setDiagnosticLoading(false);
     }
   }, []);
 
@@ -117,6 +140,25 @@ export default function AdvertisingOrdersPage() {
             ))}
           </div>
         )}
+
+        <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold">Diagnostyka widoczności zamówień</h2>
+              <p className="mt-1 text-xs text-zinc-400">Tymczasowy test środowiska Preview. Nie zmienia danych.</p>
+            </div>
+            <button
+              onClick={() => void runDiagnostic()}
+              disabled={diagnosticLoading}
+              className="rounded-xl border border-amber-400/50 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-400/10 disabled:opacity-50"
+            >
+              {diagnosticLoading ? 'Sprawdzam…' : 'Uruchom diagnostykę'}
+            </button>
+          </div>
+          {diagnostic && (
+            <pre className="mt-4 overflow-x-auto rounded-xl bg-black/40 p-4 text-xs text-emerald-300" aria-live="polite">{diagnostic}</pre>
+          )}
+        </section>
       </div>
     </main>
   );
