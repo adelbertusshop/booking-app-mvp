@@ -36,7 +36,6 @@ export async function GET(request: Request) {
       )
     `)
     .eq('advertiser_user_id', auth.context.user.id)
-    .order('created_at', { ascending: false })
     .limit(50);
 
   if (error) {
@@ -46,7 +45,13 @@ export async function GET(request: Request) {
     });
   }
 
-  const orders = (data ?? []).map((order) => ({
+  // Sort in application code: PostgREST ordering currently drops the newest row
+  // for this embedded campaign projection in Preview.
+  const sortedData = [...(data ?? [])].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
+  const orders = sortedData.map((order) => ({
     id: order.id,
     campaignId: order.campaign_id,
     packageId: order.package_id,
