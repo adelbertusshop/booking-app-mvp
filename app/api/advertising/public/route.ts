@@ -1,8 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const PUBLIC_SLOTS = {
+  home_screen_banner: {
+    placement: 'lumar_pages',
+    placementSlot: 'home_screen_banner',
+    limit: 1,
+  },
+  salon_listing: {
+    placement: 'salon_catalog',
+    placementSlot: 'salon_listing',
+    limit: 6,
+  },
+} as const;
+
+type PublicSlot = keyof typeof PUBLIC_SLOTS;
 
 function safeHttpsUrl(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2048) return null;
@@ -15,7 +30,16 @@ function safeHttpsUrl(value: unknown): string | null {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestedSlot = request.nextUrl.searchParams.get('slot') ?? 'salon_listing';
+  if (!Object.prototype.hasOwnProperty.call(PUBLIC_SLOTS, requestedSlot)) {
+    return NextResponse.json(
+      { ads: [] },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  const slot = PUBLIC_SLOTS[requestedSlot as PublicSlot];
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -38,13 +62,13 @@ export async function GET() {
     const { data, error } = await supabase
       .from('ad_campaigns')
       .select('id, title, body, destination_url, starts_at, ends_at')
-      .eq('placement', 'salon_catalog')
-      .eq('placement_slot', 'salon_listing')
+      .eq('placement', slot.placement)
+      .eq('placement_slot', slot.placementSlot)
       .eq('status', 'active')
       .lte('starts_at', now)
       .gt('ends_at', now)
       .order('starts_at', { ascending: true })
-      .limit(6);
+      .limit(slot.limit);
 
     if (error) {
       return NextResponse.json(
