@@ -3,10 +3,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Brak konfiguracji Supabase.');
+  return createClient(url, key);
+}
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 function escapeHtml(value: unknown): string {
@@ -82,6 +84,7 @@ function warsawTimeFromIso(value: string | null): string {
 
 export async function GET(req: Request) {
   try {
+    const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
     const salonId = searchParams.get('salonId');
     const date = searchParams.get('date');
@@ -133,6 +136,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const supabase = getSupabase();
     const body = await req.json();
     const { date, time, clientName, email, phone, salonId, serviceId } = body;
     if (!salonId) return NextResponse.json({ error: 'Brak salonId.' }, { status: 400 });
