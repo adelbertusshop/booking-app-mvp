@@ -1,8 +1,36 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+interface PublicAd {
+  id: string;
+  title: string;
+  body: string | null;
+  destinationUrl: string;
+}
+
 export default function Home() {
+  const [bannerAd, setBannerAd] = useState<PublicAd | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch('/api/advertising/public?slot=home_screen_banner')
+      .then((response) => (response.ok ? response.json() : { ads: [] }))
+      .then((data) => {
+        if (!cancelled) {
+          const firstAd = Array.isArray(data.ads) ? data.ads[0] : null;
+          setBannerAd(firstAd && typeof firstAd.destinationUrl === 'string' ? firstAd : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBannerAd(null);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
 
@@ -45,6 +73,28 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {bannerAd && (
+        <section className="px-4 pb-12" aria-label="Reklama sponsorowana">
+          <div className="max-w-5xl mx-auto rounded-2xl border border-amber-500/40 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Sponsorowane</p>
+                <h2 className="text-xl md:text-2xl font-black text-white">{bannerAd.title}</h2>
+                {bannerAd.body && <p className="text-sm text-zinc-400 max-w-2xl">{bannerAd.body}</p>}
+              </div>
+              <a
+                href={bannerAd.destinationUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-500 px-6 py-3 font-bold text-black transition-colors hover:bg-amber-400"
+              >
+                Sprawdź ofertę →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FEATURES */}
       <section className="border-t border-zinc-900 py-16 px-4">
