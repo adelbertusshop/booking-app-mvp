@@ -26,7 +26,7 @@ function safeHttpsUrl(value: unknown): string | null {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const requestedSlot = url.searchParams.get('slot') ?? 'salon_listing';
-  if (!(requestedSlot in PUBLIC_SLOTS)) {
+  if (!Object.prototype.hasOwnProperty.call(PUBLIC_SLOTS, requestedSlot)) {
     return NextResponse.json(
       { ads: [] },
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
