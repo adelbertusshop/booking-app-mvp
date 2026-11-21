@@ -9,8 +9,16 @@ interface Salon {
   slug: string;
 }
 
+interface PublicAd {
+  id: string;
+  title: string;
+  body: string | null;
+  destinationUrl: string;
+}
+
 export default function SalonyPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
+  const [ads, setAds] = useState<PublicAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -22,6 +30,26 @@ export default function SalonyPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch('/api/advertising/public?slot=salon_listing')
+      .then((response) => (response.ok ? response.json() : { ads: [] }))
+      .then((data) => {
+        if (!cancelled) {
+          const safeAds = Array.isArray(data.ads)
+            ? data.ads.filter((ad: PublicAd) => ad && typeof ad.id === 'string' && typeof ad.title === 'string' && typeof ad.destinationUrl === 'string')
+            : [];
+          setAds(safeAds);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAds([]);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = salons.filter(s =>
@@ -56,6 +84,31 @@ export default function SalonyPage() {
             className="w-full bg-zinc-950 border border-amber-500/30 focus:border-amber-400 text-white placeholder-zinc-500 rounded-xl px-5 py-3 text-sm outline-none transition-all"
           />
         </div>
+
+        {/* Reklamy sponsorowane */}
+        {!loading && ads.length > 0 && (
+          <section className="space-y-3" aria-label="Reklamy sponsorowane">
+            {ads.map((ad) => (
+              <article key={ad.id} className="rounded-2xl border border-amber-500/30 bg-zinc-950 p-5 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Sponsorowane</p>
+                    <h2 className="text-lg font-bold text-white">{ad.title}</h2>
+                    {ad.body && <p className="text-sm text-zinc-400">{ad.body}</p>}
+                  </div>
+                  <a
+                    href={ad.destinationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-black transition-colors hover:bg-amber-400"
+                  >
+                    Sprawdź ofertę →
+                  </a>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
 
         {/* Lista salonów */}
         {loading ? (
