@@ -14,11 +14,14 @@ interface PublicAd {
   title: string;
   body: string | null;
   destinationUrl: string;
+  salonId?: string | null;
+  imageUrl?: string | null;
 }
 
 export default function SalonyPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
   const [ads, setAds] = useState<PublicAd[]>([]);
+  const [inAppBanners, setInAppBanners] = useState<PublicAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -43,18 +46,38 @@ export default function SalonyPage() {
             ? data.ads.filter((ad: PublicAd) => ad && typeof ad.id === 'string' && typeof ad.title === 'string' && typeof ad.destinationUrl === 'string')
             : [];
           setAds(safeAds);
+          safeAds.forEach((ad) => void fetch('/api/advertising/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'salon_catalog' }),
+          }).catch(() => undefined));
         }
       })
       .catch(() => {
         if (!cancelled) setAds([]);
       });
 
+    fetch('/api/advertising/public?slot=in_app_banner')
+      .then((response) => response.ok ? response.json() : { ads: [] })
+      .then((data) => {
+        if (!cancelled) {
+          const safeBanners: PublicAd[] = Array.isArray(data.ads) ? data.ads : [];
+          setInAppBanners(safeBanners);
+          safeBanners.forEach((ad) => void fetch('/api/advertising/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'lumar_pages' }),
+          }).catch(() => undefined));
+        }
+      })
+      .catch(() => { if (!cancelled) setInAppBanners([]); });
+
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = salons.filter(s =>
-    s.salon_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = salons
+    .filter((s) => s.salon_name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => Number(ads.some((ad) => ad.salonId === b.id)) - Number(ads.some((ad) => ad.salonId === a.id)));
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -86,13 +109,14 @@ export default function SalonyPage() {
         </div>
 
         {/* Reklamy sponsorowane */}
-        {!loading && ads.length > 0 && (
+        {!loading && ads.some((ad) => !ad.salonId) && (
           <section className="space-y-3" aria-label="Reklamy sponsorowane">
-            {ads.map((ad) => (
-              <article key={ad.id} className="rounded-2xl border border-amber-500/30 bg-zinc-950 p-5 md:p-6">
+            {ads.filter((ad) => !ad.salonId).map((ad) => (
+              <article key={ad.id} className="overflow-hidden rounded-2xl border border-amber-500/30 bg-zinc-950 p-5 md:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  {ad.imageUrl && <img src={ad.imageUrl} alt="" className="max-h-32 w-full rounded-xl object-cover sm:max-w-xs" />}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Sponsorowane</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Reklama</p>
                     <h2 className="text-lg font-bold text-white">{ad.title}</h2>
                     {ad.body && <p className="text-sm text-zinc-400">{ad.body}</p>}
                   </div>
@@ -100,11 +124,27 @@ export default function SalonyPage() {
                     href={ad.destinationUrl}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
+                    onClick={() => void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: ad.id, eventType: 'click', placement: 'salon_catalog' }) })}
                     className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-black transition-colors hover:bg-amber-400"
                   >
                     Sprawdź ofertę →
                   </a>
                 </div>
+              </article>
+            ))}
+          </section>
+        )}
+        {inAppBanners.length > 0 && (
+          <section className="grid gap-3" aria-label="Banery reklamowe">
+            {inAppBanners.map((ad) => (
+              <article key={ad.id} className="overflow-hidden rounded-2xl border border-amber-500/30 bg-zinc-950 p-4">
+                {ad.imageUrl && <img src={ad.imageUrl} alt="" className="mb-3 max-h-44 w-full rounded-xl object-cover" />}
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Reklama</p>
+                <h2 className="mt-1 text-lg font-bold">{ad.title}</h2>
+                {ad.body && <p className="mt-1 text-sm text-zinc-400">{ad.body}</p>}
+                <a href={ad.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+                  onClick={() => void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: ad.id, eventType: 'click', placement: 'lumar_pages' }) })}
+                  className="mt-3 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-black">Sprawdź ofertę →</a>
               </article>
             ))}
           </section>
@@ -128,6 +168,12 @@ export default function SalonyPage() {
               <div key={salon.id} className="bg-zinc-950 border border-zinc-800 hover:border-amber-500/40 rounded-2xl p-6 transition-all group">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
+                    {ads.find((ad) => ad.salonId === salon.id)?.imageUrl && (
+                      <img src={ads.find((ad) => ad.salonId === salon.id)?.imageUrl ?? ''} alt="" className="mb-3 h-28 w-full rounded-xl object-cover" />
+                    )}
+                    {ads.some((ad) => ad.salonId === salon.id) && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Wyróżniony · Reklama</span>
+                    )}
                     <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
                       {salon.salon_name}
                     </h2>
@@ -139,6 +185,10 @@ export default function SalonyPage() {
                 </div>
                 <Link
                   href={`/salon/${salon.slug}`}
+                  onClick={() => {
+                    const promoted = ads.find((ad) => ad.salonId === salon.id);
+                    if (promoted) void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: promoted.id, eventType: 'click', placement: 'salon_catalog' }) });
+                  }}
                   className="mt-4 block w-full text-center bg-amber-500 hover:bg-amber-400 text-black font-bold py-2.5 rounded-xl text-sm transition-all"
                 >
                   Zarezerwuj wizytę →
