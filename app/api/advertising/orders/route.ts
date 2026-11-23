@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const campaignIds = [...new Set((data ?? []).map((order) => order.campaign_id))];
+  const campaignIds = Array.from(new Set((data ?? []).map((order) => order.campaign_id)));
   const statsResult = campaignIds.length > 0
     ? await auth.context.supabase.rpc('lumar_advertising_event_stats', { p_campaign_ids: campaignIds })
     : { data: [], error: null };
