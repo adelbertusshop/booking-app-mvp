@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 interface Service { id: string; name: string; duration_minutes: number; price?: number; }
 interface Salon { id: string; salon_name: string; slug: string; }
+interface ProfileAd { id: string; title: string; body: string | null; destinationUrl: string; imageUrl?: string | null; }
 interface BookedTime { start: string; end: string; }
 
 function toMinutes(t: string): number {
@@ -35,6 +36,7 @@ function generateSlots(openTime: string, closeTime: string, durationMinutes: num
 export default function SalonSlugPage({ params }: { params: { slug: string } }) {
   const slug = params.slug;
   const [salon, setSalon] = useState<Salon | null>(null);
+  const [profileAd, setProfileAd] = useState<ProfileAd | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loadingInit, setLoadingInit] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -96,6 +98,26 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
     init();
     return () => { cancelled = true; };
   }, [slug]);
+
+  useEffect(() => {
+    if (!salon?.id) { setProfileAd(null); return; }
+    let cancelled = false;
+    fetch(`/api/advertising/public?slot=featured_profile&salonId=${encodeURIComponent(salon.id)}`)
+      .then((response) => response.ok ? response.json() : { ads: [] })
+      .then((data) => {
+        const ad = Array.isArray(data.ads) ? data.ads[0] as ProfileAd | undefined : undefined;
+        if (!cancelled) {
+          setProfileAd(ad ?? null);
+          if (ad) void fetch('/api/advertising/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'salon_catalog' }),
+          }).catch(() => undefined);
+        }
+      })
+      .catch(() => { if (!cancelled) setProfileAd(null); });
+    return () => { cancelled = true; };
+  }, [salon?.id]);
 
   useEffect(() => {
     if (!date || !salon?.id) { setAvailableSlots([]); setSelectedTime(''); setIsDayOff(false); return; }
@@ -173,6 +195,20 @@ export default function SalonSlugPage({ params }: { params: { slug: string } }) 
           <h1 className="text-3xl font-bold text-amber-400">{salon?.salon_name}</h1>
           <p className="text-zinc-500 text-sm">Zarezerwuj wizytę online</p>
         </div>
+
+        {profileAd && (
+          <aside className="overflow-hidden rounded-xl border border-amber-400/40 bg-zinc-900/80 text-left" aria-label="Wyróżniony profil sponsorowany">
+            {profileAd.imageUrl && <img src={profileAd.imageUrl} alt="" className="max-h-48 w-full object-cover" />}
+            <div className="space-y-2 p-4">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Polecany · Reklama</span>
+              <h2 className="text-lg font-bold text-white">{profileAd.title}</h2>
+              {profileAd.body && <p className="text-sm text-zinc-400">{profileAd.body}</p>}
+              <a href={profileAd.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+                onClick={() => void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: profileAd.id, eventType: 'click', placement: 'salon_catalog' }) })}
+                className="inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-black">Poznaj ofertę →</a>
+            </div>
+          </aside>
+        )}
 
         {serviceLoadError ? (
           <div className="text-center py-8 space-y-3">
