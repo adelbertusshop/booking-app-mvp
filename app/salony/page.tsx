@@ -21,6 +21,7 @@ interface PublicAd {
 export default function SalonyPage() {
   const [salons, setSalons] = useState<Salon[]>([]);
   const [ads, setAds] = useState<PublicAd[]>([]);
+  const [externalFeaturedAds, setExternalFeaturedAds] = useState<PublicAd[]>([]);
   const [inAppBanners, setInAppBanners] = useState<PublicAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -57,6 +58,21 @@ export default function SalonyPage() {
         if (!cancelled) setAds([]);
       });
 
+    fetch('/api/advertising/public?slot=featured_profile')
+      .then((response) => response.ok ? response.json() : { ads: [] })
+      .then((data) => {
+        if (!cancelled) {
+          const safeFeaturedAds: PublicAd[] = Array.isArray(data.ads) ? data.ads : [];
+          setExternalFeaturedAds(safeFeaturedAds);
+          safeFeaturedAds.forEach((ad) => void fetch('/api/advertising/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'salon_catalog' }),
+          }).catch(() => undefined));
+        }
+      })
+      .catch(() => { if (!cancelled) setExternalFeaturedAds([]); });
+
     fetch('/api/advertising/public?slot=in_app_banner')
       .then((response) => response.ok ? response.json() : { ads: [] })
       .then((data) => {
@@ -78,6 +94,10 @@ export default function SalonyPage() {
   const filtered = salons
     .filter((s) => s.salon_name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => Number(ads.some((ad) => ad.salonId === b.id)) - Number(ads.some((ad) => ad.salonId === a.id)));
+  const externalSponsoredAds = [
+    ...ads.filter((ad) => !ad.salonId),
+    ...externalFeaturedAds,
+  ];
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -109,9 +129,9 @@ export default function SalonyPage() {
         </div>
 
         {/* Reklamy sponsorowane */}
-        {!loading && ads.some((ad) => !ad.salonId) && (
+        {!loading && externalSponsoredAds.length > 0 && (
           <section className="space-y-3" aria-label="Reklamy sponsorowane">
-            {ads.filter((ad) => !ad.salonId).map((ad) => (
+            {externalSponsoredAds.map((ad) => (
               <article key={ad.id} className="overflow-hidden rounded-2xl border border-amber-500/30 bg-zinc-950 p-5 md:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   {ad.imageUrl && <img src={ad.imageUrl} alt="" className="max-h-32 w-full rounded-xl object-cover sm:max-w-xs" />}
