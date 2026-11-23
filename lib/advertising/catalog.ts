@@ -76,11 +76,11 @@ export const ADVERTISING_PACKAGES: AdvertisingPackage[] = [
   {
     id: 'in_app_banner',
     name: 'Baner w aplikacji',
-    description: 'Baner graficzny w wybranej sekcji aplikacji.',
+    description: 'Baner graficzny w katalogu salonów LUMAR.',
     placement: 'lumar_pages',
-    placementLabel: 'Wybrana sekcja aplikacji',
+    placementLabel: 'Katalog salonów',
     placementSlot: 'in_app_banner',
-    features: ['Baner graficzny', 'Wybór obsługiwanej sekcji', 'Oznaczenie „Reklama”'],
+    features: ['Baner graficzny w katalogu salonów', 'Link do strony reklamodawcy', 'Oznaczenie „Reklama”'],
     pricesNetPln: {
       salon_w_aplikacji: { 7: 129, 30: 349, 90: 799 },
       firma_zewnetrzna: { 7: 219, 30: 599, 90: 1299 },
