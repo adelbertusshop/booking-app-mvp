@@ -8,10 +8,12 @@ interface PublicAd {
   title: string;
   body: string | null;
   destinationUrl: string;
+  imageUrl?: string | null;
 }
 
 export default function Home() {
   const [bannerAd, setBannerAd] = useState<PublicAd | null>(null);
+  const [carouselAds, setCarouselAds] = useState<PublicAd[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +30,25 @@ export default function Home() {
         if (!cancelled) setBannerAd(null);
       });
 
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/advertising/public?slot=sponsored_carousel')
+      .then((response) => response.ok ? response.json() : { ads: [] })
+      .then((data) => {
+        const ads: PublicAd[] = Array.isArray(data.ads) ? data.ads : [];
+        if (!cancelled) {
+          setCarouselAds(ads);
+          ads.forEach((ad) => void fetch('/api/advertising/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'lumar_pages' }),
+          }).catch(() => undefined));
+        }
+      })
+      .catch(() => { if (!cancelled) setCarouselAds([]); });
     return () => { cancelled = true; };
   }, []);
 
@@ -76,10 +97,11 @@ export default function Home() {
 
       {bannerAd && (
         <section className="px-4 pb-12" aria-label="Reklama sponsorowana">
-          <div className="max-w-5xl mx-auto rounded-2xl border border-amber-500/40 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-6 md:p-8">
+          <div className="max-w-5xl mx-auto overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-6 md:p-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              {bannerAd.imageUrl && <img src={bannerAd.imageUrl} alt="" className="max-h-40 w-full rounded-xl object-cover md:max-w-xs" />}
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Sponsorowane</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">Reklama</p>
                 <h2 className="text-xl md:text-2xl font-black text-white">{bannerAd.title}</h2>
                 {bannerAd.body && <p className="text-sm text-zinc-400 max-w-2xl">{bannerAd.body}</p>}
               </div>
@@ -87,10 +109,35 @@ export default function Home() {
                 href={bannerAd.destinationUrl}
                 target="_blank"
                 rel="noopener noreferrer sponsored"
+                onClick={() => void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: bannerAd.id, eventType: 'click', placement: 'lumar_pages' }) })}
                 className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-500 px-6 py-3 font-bold text-black transition-colors hover:bg-amber-400"
               >
                 Sprawdź ofertę →
               </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {carouselAds.length > 0 && (
+        <section className="px-4 pb-12" aria-label="Treści sponsorowane">
+          <div className="mx-auto max-w-5xl">
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-amber-400">Polecane · Reklama</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              {carouselAds.map((ad) => (
+                <article key={ad.id} className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
+                  {ad.imageUrl && <img src={ad.imageUrl} alt="" className="h-40 w-full object-cover" />}
+                  <div className="space-y-3 p-5">
+                    <h2 className="text-lg font-bold">{ad.title}</h2>
+                    {ad.body && <p className="text-sm text-zinc-400">{ad.body}</p>}
+                    <a href={ad.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
+                      onClick={() => void fetch('/api/advertising/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: ad.id, eventType: 'click', placement: 'lumar_pages' }) })}
+                      className="inline-flex rounded-xl border border-amber-500/40 px-4 py-2 text-sm font-bold text-amber-300 hover:bg-amber-500/10">
+                      Zobacz ofertę →
+                    </a>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>
