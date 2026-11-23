@@ -25,8 +25,8 @@ function detectImage(bytes: Uint8Array): { mime: string; extension: string } | n
     return { mime: 'image/jpeg', extension: 'jpg' };
   }
   if (bytes.length >= 12 &&
-      String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
-      String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') {
+      String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) === 'RIFF' &&
+      String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) === 'WEBP') {
     return { mime: 'image/webp', extension: 'webp' };
   }
   return null;
