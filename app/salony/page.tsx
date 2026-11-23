@@ -46,7 +46,7 @@ export default function SalonyPage() {
             ? data.ads.filter((ad: PublicAd) => ad && typeof ad.id === 'string' && typeof ad.title === 'string' && typeof ad.destinationUrl === 'string')
             : [];
           setAds(safeAds);
-          safeAds.forEach((ad) => void fetch('/api/advertising/events', {
+          safeAds.forEach((ad: PublicAd) => void fetch('/api/advertising/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ campaignId: ad.id, eventType: 'impression', placement: 'salon_catalog' }),
