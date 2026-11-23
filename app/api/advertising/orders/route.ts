@@ -54,6 +54,17 @@ export async function GET(request: Request) {
     });
   }
 
+  const campaignIds = [...new Set((data ?? []).map((order) => order.campaign_id))];
+  const statsResult = campaignIds.length > 0
+    ? await auth.context.supabase.rpc('lumar_advertising_event_stats', { p_campaign_ids: campaignIds })
+    : { data: [], error: null };
+  const statsByCampaign = new Map(
+    (statsResult.data ?? []).map((item: { campaign_id: string; impressions: number; clicks: number }) => [
+      item.campaign_id,
+      { impressions: Number(item.impressions), clicks: Number(item.clicks) },
+    ]),
+  );
+
   const orders = (data ?? []).map((order) => ({
     id: order.id,
     campaignId: order.campaign_id,
@@ -66,6 +77,7 @@ export async function GET(request: Request) {
     paidAt: order.paid_at,
     createdAt: order.created_at,
     campaign: order.campaign,
+    metrics: statsByCampaign.get(order.campaign_id) ?? { impressions: 0, clicks: 0 },
   }));
 
   return NextResponse.json({ orders }, {
