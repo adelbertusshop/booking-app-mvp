@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
   const slot = PUBLIC_SLOTS[requestedSlot as PublicSlot];
   const salonId = request.nextUrl.searchParams.get('salonId');
-  if (requestedSlot === 'featured_profile' && (!salonId || !UUID_RE.test(salonId))) {
+  if (requestedSlot === 'featured_profile' && salonId && !UUID_RE.test(salonId)) {
     return NextResponse.json({ ads: [] }, {
       status: 400,
       headers: { 'Cache-Control': 'no-store' },
@@ -80,7 +80,9 @@ export async function GET(request: NextRequest) {
       .order('starts_at', { ascending: true })
       .limit(slot.limit);
 
-    if (requestedSlot === 'featured_profile') query = query.eq('salon_id', salonId);
+    if (requestedSlot === 'featured_profile') {
+      query = salonId ? query.eq('salon_id', salonId) : query.is('salon_id', null);
+    }
 
     const { data, error } = await query;
     if (error) {
