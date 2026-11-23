@@ -13,6 +13,7 @@ type Order = {
   paymentStatus: string;
   paidAt: string | null;
   createdAt: string;
+  metrics: { impressions: number; clicks: number };
   campaign: {
     title?: string;
     status?: string;
@@ -113,6 +114,12 @@ export default function AdvertisingOrdersPage() {
                 {order.paidAt && <p className="mt-3 text-xs text-zinc-400">Opłacono: {new Date(order.paidAt).toLocaleString('pl-PL')}</p>}
                 {order.campaign?.starts_at && <p className="mt-1 text-xs text-zinc-400">Start emisji: {new Date(order.campaign.starts_at).toLocaleString('pl-PL')}</p>}
                 {order.campaign?.ends_at && <p className="mt-1 text-xs text-zinc-400">Koniec emisji: {new Date(order.campaign.ends_at).toLocaleString('pl-PL')}</p>}
+                {order.paymentStatus === 'paid' && (
+                  <div className="mt-4 flex flex-wrap gap-4 border-t border-zinc-800 pt-3 text-xs text-zinc-300">
+                    <span><strong className="text-amber-300">{order.metrics?.impressions ?? 0}</strong> wyświetleń</span>
+                    <span><strong className="text-amber-300">{order.metrics?.clicks ?? 0}</strong> kliknięć</span>
+                  </div>
+                )}
               </article>
             ))}
           </div>
