@@ -24,6 +24,13 @@ export default function Home() {
         if (!cancelled) {
           const firstAd = Array.isArray(data.ads) ? data.ads[0] : null;
           setBannerAd(firstAd && typeof firstAd.destinationUrl === 'string' ? firstAd : null);
+          if (firstAd && typeof firstAd.id === 'string') {
+            void fetch('/api/advertising/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ campaignId: firstAd.id, eventType: 'impression', placement: 'lumar_pages' }),
+            }).catch(() => undefined);
+          }
         }
       })
       .catch(() => {
