@@ -258,9 +258,25 @@ export default function AdminPage() {
   };
 
   const fetchHours = async (sid: string) => {
-    const { data } = await supabase.from('salon_hours').select('*').eq('salon_id', sid).order('day_of_week');
+    const { data, error } = await supabase
+      .from('salon_hours')
+      .select('*')
+      .eq('salon_id', sid)
+      .order('day_of_week');
+
+    if (error) {
+      console.error('[SALON HOURS FETCH ERROR]', error);
+      return;
+    }
+
     if (data && data.length === 7) {
-      setHours(data as SalonHour[]);
+      // PostgreSQL TIME values may arrive as HH:MM:SS, while the
+      // controlled selects use HH:MM. Normalize before rendering.
+      setHours(data.map((hour) => ({
+        ...hour,
+        open_time: hour.open_time?.slice(0, 5),
+        close_time: hour.close_time?.slice(0, 5),
+      })) as SalonHour[]);
     } else {
       // Ustaw domyślne jeśli brak
       setHours(DEFAULT_HOURS);
