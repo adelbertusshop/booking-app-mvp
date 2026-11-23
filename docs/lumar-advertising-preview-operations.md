@@ -5,8 +5,8 @@
 | Package | Public placement | Surface |
 | --- | --- | --- |
 | `listing_highlight` | `salon_listing` | `/salony`; matching salon cards are promoted in the list |
-| `featured_profile` | `featured_profile` | The matching salon booking/profile page |
-| `in_app_banner` | `in_app_banner` | `/salony` banner section |
+| `featured_profile` | `featured_profile` | Matching salon profile for LUMAR advertisers; external advertisers appear as a sponsored catalog card |
+| `in_app_banner` | `in_app_banner` | `/salony` catalog banner section |
 | `home_screen_banner` | `home_screen_banner` | Homepage banner |
 | `sponsored_carousel` | `sponsored_carousel` | Homepage sponsored cards |
 
