@@ -9,6 +9,14 @@ export async function GET(request: Request) {
   const auth = await authenticateAdvertisingRequest(request);
   if (!auth.ok) return auth.response;
 
+  const now = new Date().toISOString();
+  await auth.context.supabase
+    .from('ad_campaigns')
+    .update({ status: 'completed', updated_at: now })
+    .eq('advertiser_user_id', auth.context.user.id)
+    .eq('status', 'active')
+    .lte('ends_at', now);
+
   const { data, error } = await auth.context.supabase
     .from('ad_orders')
     .select(`
