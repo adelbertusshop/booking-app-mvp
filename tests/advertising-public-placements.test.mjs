@@ -28,6 +28,7 @@ test('public advertising API serves all five placements and only active campaign
   assert.match(route, /\.eq\('status', 'active'\)/);
   assert.match(route, /\.gt\('ends_at', now\)/);
   assert.match(route, /safeHttpsUrl/);
+  assert.match(route, /query\.is\('salon_id', null\)/);
 });
 
 test('creative uploads are authenticated, bounded, and signature-checked', async () => {
