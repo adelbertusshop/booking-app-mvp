@@ -18,6 +18,10 @@ type Campaign = {
   created_at: string;
 };
 
+function creativeUrl(path: string | null) {
+  return path ? supabase.storage.from('lumar-advertising').getPublicUrl(path).data.publicUrl : null;
+}
+
 export default function AdvertisingModerationPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +124,9 @@ export default function AdvertisingModerationPage() {
                   </div>
                   <span className="rounded-full border border-amber-400/40 px-3 py-1 text-xs font-semibold text-amber-200">OCZEKUJE</span>
                 </div>
+                {creativeUrl(campaign.image_path) && (
+                  <img src={creativeUrl(campaign.image_path) ?? ''} alt="Grafika kampanii" className="mt-4 max-h-64 w-full rounded-xl border border-zinc-700 object-contain" />
+                )}
                 {campaign.body && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-300">{campaign.body}</p>}
                 <div className="mt-4 flex flex-wrap gap-4 text-sm">
                   <a href={campaign.destination_url} target="_blank" rel="noopener noreferrer" className="break-all text-amber-300 underline">Otwórz stronę docelową</a>
