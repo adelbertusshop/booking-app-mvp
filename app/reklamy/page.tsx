@@ -24,6 +24,9 @@ export default function ReklamyPage() {
   const [adTitle, setAdTitle] = useState('');
   const [adDescription, setAdDescription] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [imageUploadMessage, setImageUploadMessage] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [paymentNotice, setPaymentNotice] = useState('');
@@ -38,6 +41,10 @@ export default function ReklamyPage() {
   );
   const selected = ADVERTISING_PACKAGES.find((item) => item.id === selectedPackage);
   const selectedPrice = selected?.pricesNetPln[clientType][duration];
+  const requiresImage = selected ? ['in_app_banner', 'home_screen_banner', 'sponsored_carousel'].includes(selected.id) : false;
+  const imagePreviewUrl = imagePath
+    ? supabase.storage.from('lumar-advertising').getPublicUrl(imagePath).data.publicUrl
+    : '';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -108,6 +115,34 @@ export default function ReklamyPage() {
     };
   }, [clientType]);
 
+  async function uploadCreative(file: File | null) {
+    setImageUploadMessage('');
+    setImagePath(null);
+    checkoutIdempotencyKey.current = null;
+    if (!file) return;
+    setImageUploadLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Zaloguj się, aby przesłać grafikę.');
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch('/api/advertising/upload', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.access_token },
+        body: form,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Nie udało się przesłać grafiki.');
+      if (typeof result.imagePath !== 'string') throw new Error('Serwer nie zwrócił ścieżki grafiki.');
+      setImagePath(result.imagePath);
+      setImageUploadMessage('Grafika przesłana i gotowa do zamówienia.');
+    } catch (error) {
+      setImageUploadMessage(error instanceof Error ? error.message : 'Błąd przesyłania grafiki.');
+    } finally {
+      setImageUploadLoading(false);
+    }
+  }
+
   async function startTestCheckout() {
     setCheckoutMessage('');
     if (!testCheckoutEnabled) return;
@@ -144,6 +179,7 @@ export default function ReklamyPage() {
           title: adTitle,
           description: adDescription,
           destinationUrl,
+          imagePath,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -306,11 +342,19 @@ export default function ReklamyPage() {
               Adres strony, do której prowadzi reklama (HTTPS)
               <input value={destinationUrl} onChange={(event) => { checkoutIdempotencyKey.current = null; setDestinationUrl(event.target.value); }} type="url" maxLength={2048} required placeholder="https://twoja-strona.pl" className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 font-normal text-white outline-none focus:border-amber-400" />
             </label>
+            <label className="grid gap-2 text-sm font-semibold text-zinc-200">
+              Grafika reklamy {requiresImage ? '(wymagana)' : '(opcjonalna)'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadCreative(event.target.files?.[0] ?? null)} className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm font-normal text-zinc-200 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-400 file:px-3 file:py-2 file:font-bold file:text-black" />
+              <span className="text-xs font-normal text-zinc-400">JPG, PNG lub WEBP · maksymalnie 5 MB.</span>
+              {imageUploadLoading && <span className="text-xs font-normal text-amber-300">Przesyłam grafikę…</span>}
+              {imageUploadMessage && <span role="status" className="text-xs font-normal text-zinc-300">{imageUploadMessage}</span>}
+              {imagePreviewUrl && <img src={imagePreviewUrl} alt="Podgląd grafiki reklamowej" className="max-h-48 w-full rounded-xl border border-zinc-700 object-contain" />}
+            </label>
             {checkoutMessage && <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{checkoutMessage}</p>}
             <button
               type="button"
               onClick={startTestCheckout}
-              disabled={!testCheckoutEnabled || checkoutLoading || !selected || adTitle.trim().length < 3 || !destinationUrl.trim()}
+              disabled={!testCheckoutEnabled || checkoutLoading || imageUploadLoading || !selected || adTitle.trim().length < 3 || !destinationUrl.trim() || (requiresImage && !imagePath)}
               className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
             >
               {checkoutLoading ? 'Przygotowuję płatność…' : testCheckoutEnabled ? 'Przejdź do testowej płatności Stripe' : 'Testowa płatność — jeszcze nieaktywna'}
