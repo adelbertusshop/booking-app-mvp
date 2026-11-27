@@ -68,13 +68,13 @@ export async function PATCH(request: Request) {
 
   const { data: campaign, error: lookupError } = await auth.context.supabase
     .from('ad_campaigns')
-    .select('id, duration_days, status')
+    .select('id, duration_days, status, destination_url')
     .eq('id', campaignId)
     .maybeSingle();
 
   if (lookupError) return fail('Nie udało się odczytać kampanii.', 503);
   if (!campaign) return fail('Nie znaleziono kampanii.', 404);
-  if (campaign.status !== 'pending_review') return fail('Kampania nie oczekuje już na moderację.', 409);
+  if (campaign.status !== 'pending_review') return fail('Kampania nie oczekuje już na moderację.', 409);\n  if (decision === 'approve') {\n    const destinationError = validateDestination(campaign.destination_url);\n    if (destinationError) return fail(destinationError, 400);\n  }
 
   const now = new Date();
   const startsAt = decision === 'approve' ? now.toISOString() : null;
