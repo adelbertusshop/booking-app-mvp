@@ -74,7 +74,11 @@ export async function PATCH(request: Request) {
 
   if (lookupError) return fail('Nie udało się odczytać kampanii.', 503);
   if (!campaign) return fail('Nie znaleziono kampanii.', 404);
-  if (campaign.status !== 'pending_review') return fail('Kampania nie oczekuje już na moderację.', 409);\n  if (decision === 'approve') {\n    const destinationError = validateDestination(campaign.destination_url);\n    if (destinationError) return fail(destinationError, 400);\n  }
+  if (campaign.status !== 'pending_review') return fail('Kampania nie oczekuje już na moderację.', 409);
+  if (decision === 'approve') {
+    const destinationError = validateDestination(campaign.destination_url);
+    if (destinationError) return fail(destinationError, 400);
+  }
 
   const now = new Date();
   const startsAt = decision === 'approve' ? now.toISOString() : null;
