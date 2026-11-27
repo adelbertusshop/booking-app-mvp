@@ -114,8 +114,25 @@ export async function POST(request: Request) {
   if (description.length > 500) return fail('Opis reklamy może mieć maksymalnie 500 znaków.', 400);
   if (!destinationUrl) return fail('Adres docelowy musi być prawidłowym adresem HTTPS.', 400);
   if (imagePath !== undefined && imagePath !== null &&
-      (typeof imagePath !== 'string' || imagePath.length > 1024 || !/^[A-Za-z0-9][A-Za-z0-9/_-]*$/.test(imagePath) || imagePath.includes('..'))) {
+      (typeof imagePath !== 'string' || imagePath.length > 1024 || !/^[A-Za-z0-9][A-Za-z0-9/_-]*$/.test(imagePath) ||
+       imagePath.includes('..') || !imagePath.startsWith(`${auth.context.user.id}/`))) {
     return fail('Nieprawidłowa ścieżka grafiki reklamowej.', 400);
+  }
+  if (['in_app_banner', 'home_screen_banner', 'sponsored_carousel'].includes(pkg.id) &&
+      typeof imagePath !== 'string') {
+    return fail('Dla tego pakietu dodaj grafikę JPG, PNG lub WEBP.', 400);
+  }
+
+  if (typeof imagePath === 'string') {
+    const parts = imagePath.split('/');
+    const fileName = parts.pop() ?? '';
+    const { data: storedFiles, error: storageError } = await auth.context.supabase.storage
+      .from('lumar-advertising')
+      .list(auth.context.user.id, { search: fileName, limit: 10 });
+    if (storageError) return fail('Nie udało się zweryfikować przesłanej grafiki.', 503);
+    if (!storedFiles?.some((item) => item.name === fileName)) {
+      return fail('Przesłana grafika nie istnieje lub nie należy do tego konta.', 400);
+    }
   }
 
   let verifiedSalonId: string | null = null;

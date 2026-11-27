@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import {
   authenticateAdvertisingRequest,
@@ -7,6 +8,43 @@ import {
 export const dynamic = 'force-dynamic';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BLOCKED_PATHS = new Set([
+  'api', 'admin', 'webhook', 'checkout', 'login', 'logout',
+  'reklamy', 'auth', 'account', 'dashboard',
+]);
+
+function validateDestination(value: string): string | null {
+  if (typeof value !== 'string' || value.length > 2048) return 'Adres docelowy jest nieprawidłowy lub zbyt długi.';
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return 'Adres docelowy nie jest prawidłowym adresem URL.';
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return 'Reklama musi prowadzić do bezpiecznego adresu HTTPS bez danych logowania.';
+  if (url.port && url.port !== '443') return 'Reklama nie może prowadzić do niestandardowego portu.';
+  const rawHostname = url.hostname.toLowerCase();
+  const hostname = rawHostname.replace(/\.$/, '');
+  if (!hostname || hostname !== rawHostname || hostname === 'localhost'
+    || /\.(localhost|local|internal|test|example|invalid|home\.arpa)$/.test(hostname)) {
+    return 'Adres lokalny lub wewnętrzny nie może być reklamowany.';
+  }
+  // Kampanie mają prowadzić do publicznych domen, nigdy bezpośrednio do adresów IP.
+  // Odrzucenie wszystkich literałów IP zamyka też nietypowe zapisy IPv4 i zakresy IPv6.
+  const ipCandidate = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname;
+  if (isIP(ipCandidate) !== 0 || !hostname.includes('.')) {
+    return 'Reklama musi prowadzić do publicznej domeny internetowej, a nie adresu IP lub hosta lokalnego.';
+  }
+  const segments = url.pathname.split('/').filter(Boolean).map((segment) => {
+    try { return decodeURIComponent(segment).toLowerCase(); } catch { return ''; }
+  });
+  if (segments.some((segment) => !segment || BLOCKED_PATHS.has(segment))) {
+    return 'Adres prowadzi do panelu lub technicznej ścieżki, a nie do publicznej strony reklamowej.';
+  }
+  return null;
+}
 
 function fail(message: string, status: number) {
   return NextResponse.json({ error: message }, {
@@ -68,13 +106,17 @@ export async function PATCH(request: Request) {
 
   const { data: campaign, error: lookupError } = await auth.context.supabase
     .from('ad_campaigns')
-    .select('id, duration_days, status')
+    .select('id, duration_days, status, destination_url')
     .eq('id', campaignId)
     .maybeSingle();
 
   if (lookupError) return fail('Nie udało się odczytać kampanii.', 503);
   if (!campaign) return fail('Nie znaleziono kampanii.', 404);
   if (campaign.status !== 'pending_review') return fail('Kampania nie oczekuje już na moderację.', 409);
+  if (decision === 'approve') {
+    const destinationError = validateDestination(campaign.destination_url);
+    if (destinationError) return fail(destinationError, 400);
+  }
 
   const now = new Date();
   const startsAt = decision === 'approve' ? now.toISOString() : null;

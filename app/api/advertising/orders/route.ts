@@ -9,6 +9,14 @@ export async function GET(request: Request) {
   const auth = await authenticateAdvertisingRequest(request);
   if (!auth.ok) return auth.response;
 
+  const now = new Date().toISOString();
+  await auth.context.supabase
+    .from('ad_campaigns')
+    .update({ status: 'completed', updated_at: now })
+    .eq('advertiser_user_id', auth.context.user.id)
+    .eq('status', 'active')
+    .lte('ends_at', now);
+
   const { data, error } = await auth.context.supabase
     .from('ad_orders')
     .select(`
@@ -46,6 +54,17 @@ export async function GET(request: Request) {
     });
   }
 
+  const campaignIds = Array.from(new Set((data ?? []).map((order) => order.campaign_id)));
+  const statsResult = campaignIds.length > 0
+    ? await auth.context.supabase.rpc('lumar_advertising_event_stats', { p_campaign_ids: campaignIds })
+    : { data: [], error: null };
+  const statsByCampaign = new Map(
+    (statsResult.data ?? []).map((item: { campaign_id: string; impressions: number; clicks: number }) => [
+      item.campaign_id,
+      { impressions: Number(item.impressions), clicks: Number(item.clicks) },
+    ]),
+  );
+
   const orders = (data ?? []).map((order) => ({
     id: order.id,
     campaignId: order.campaign_id,
@@ -58,6 +77,7 @@ export async function GET(request: Request) {
     paidAt: order.paid_at,
     createdAt: order.created_at,
     campaign: order.campaign,
+    metrics: statsByCampaign.get(order.campaign_id) ?? { impressions: 0, clicks: 0 },
   }));
 
   return NextResponse.json({ orders }, {
