@@ -22,7 +22,7 @@ function creativeUrl(path: string | null) {
   return path ? supabase.storage.from('lumar-advertising').getPublicUrl(path).data.publicUrl : null;
 }
 
-function clientTypeLabel(value: string) {
+function destinationWarning(value: string) {\n  try {\n    const url = new URL(value);\n    const segments = url.pathname.toLowerCase().split('/').filter(Boolean);\n    if (url.protocol !== 'https:' || url.username || url.password) return 'UWAGA: adres nie spełnia wymogów HTTPS.';\n    const host = url.hostname.toLowerCase();\n    if (host === 'localhost' || host.endsWith('.localhost') || host === '127.0.0.1' || host === '::1' || host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) return 'UWAGA: adres lokalny lub prywatny.';\n    if (segments.some((segment) => ['api', 'admin', 'webhook', 'checkout', 'login', 'reklamy'].includes(segment))) return 'UWAGA: adres wygląda na panel, API lub techniczny proces, a nie stronę reklamową.';\n    return null;\n  } catch { return 'UWAGA: nieprawidłowy adres URL.'; }\n}\n\nfunction clientTypeLabel(value: string) {
   return value === 'salon_w_aplikacji' ? 'Salon w LUMAR' : value === 'firma_zewnetrzna' ? 'Firma zewnętrzna' : value;
 }
 
@@ -150,7 +150,7 @@ export default function AdvertisingModerationPage() {
                       >
                         {campaign.destination_url}
                       </a>
-                      <p className="mt-2 text-xs text-zinc-500">Sprawdź, czy adres prowadzi dokładnie do reklamowanej firmy lub salonu.</p>
+                      <p className="mt-2 text-xs text-zinc-500">Sprawdź, czy adres prowadzi dokładnie do reklamowanej firmy lub salonu.</p>{destinationWarning(campaign.destination_url) && <p role="alert" className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm font-bold text-red-200">{destinationWarning(campaign.destination_url)} Zatwierdzenie będzie blokowane po stronie serwera.</p>}
                     </div>
                   </section>
 
