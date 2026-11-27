@@ -7,6 +7,34 @@ import {
 export const dynamic = 'force-dynamic';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BLOCKED_PATHS = new Set([
+  'api', 'admin', 'webhook', 'checkout', 'login', 'logout',
+  'reklamy', 'auth', 'account', 'dashboard',
+]);
+
+function validateDestination(value: string): string | null {
+  if (typeof value !== 'string' || value.length > 2048) return 'Adres docelowy jest nieprawidłowy lub zbyt długi.';
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return 'Adres docelowy nie jest prawidłowym adresem URL.';
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return 'Reklama musi prowadzić do bezpiecznego adresu HTTPS bez danych logowania.';
+  if (url.port && url.port !== '443') return 'Reklama nie może prowadzić do niestandardowego portu.';
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+    return 'Adres lokalny lub wewnętrzny nie może być reklamowany.';
+  }
+  if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(hostname) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) || hostname === '::1' || hostname.startsWith('[::1]')) {
+    return 'Adres lokalny lub prywatny nie może być reklamowany.';
+  }
+  const segments = url.pathname.toLowerCase().split('/').filter(Boolean);
+  if (segments.some((segment) => BLOCKED_PATHS.has(segment))) {
+    return 'Adres prowadzi do panelu lub technicznej ścieżki, a nie do publicznej strony reklamowej.';
+  }
+  return null;
+}
 
 function fail(message: string, status: number) {
   return NextResponse.json({ error: message }, {
