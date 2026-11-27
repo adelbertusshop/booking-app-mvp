@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import {
   authenticateAdvertisingRequest,
@@ -22,15 +23,24 @@ function validateDestination(value: string): string | null {
   }
   if (url.protocol !== 'https:' || url.username || url.password) return 'Reklama musi prowadzić do bezpiecznego adresu HTTPS bez danych logowania.';
   if (url.port && url.port !== '443') return 'Reklama nie może prowadzić do niestandardowego portu.';
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
-  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+  const rawHostname = url.hostname.toLowerCase();
+  const hostname = rawHostname.replace(/\.$/, '');
+  if (!hostname || hostname !== rawHostname || hostname === 'localhost'
+    || /\.(localhost|local|internal|test|example|invalid|home\.arpa)$/.test(hostname)) {
     return 'Adres lokalny lub wewnętrzny nie może być reklamowany.';
   }
-  if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(hostname) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) || hostname === '::1' || hostname.startsWith('[::1]')) {
-    return 'Adres lokalny lub prywatny nie może być reklamowany.';
+  // Kampanie mają prowadzić do publicznych domen, nigdy bezpośrednio do adresów IP.
+  // Odrzucenie wszystkich literałów IP zamyka też nietypowe zapisy IPv4 i zakresy IPv6.
+  const ipCandidate = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname;
+  if (isIP(ipCandidate) !== 0 || !hostname.includes('.')) {
+    return 'Reklama musi prowadzić do publicznej domeny internetowej, a nie adresu IP lub hosta lokalnego.';
   }
-  const segments = url.pathname.toLowerCase().split('/').filter(Boolean);
-  if (segments.some((segment) => BLOCKED_PATHS.has(segment))) {
+  const segments = url.pathname.split('/').filter(Boolean).map((segment) => {
+    try { return decodeURIComponent(segment).toLowerCase(); } catch { return ''; }
+  });
+  if (segments.some((segment) => !segment || BLOCKED_PATHS.has(segment))) {
     return 'Adres prowadzi do panelu lub technicznej ścieżki, a nie do publicznej strony reklamowej.';
   }
   return null;
